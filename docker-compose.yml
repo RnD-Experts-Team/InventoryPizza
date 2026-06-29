@@ -1,0 +1,207 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Shared NATS stack — Inventory + HiringPizza + Pizzasys
+#
+#   docker compose up -d          → start NATS + auto-create all streams & consumers
+#   docker compose logs -f        → watch init output
+#   docker compose down           → stop (keeps data volume)
+#   docker compose down -v        → stop + wipe all JetStream data
+#
+# All three Laravel apps (XAMPP) connect to 127.0.0.1:4222 as usual.
+# NOTE: stop any NATS already running on Windows before starting — port 4222 clashes.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── NATS server with JetStream ─────────────────────────────────────────────
+  nats:
+    image: nats:2.10-alpine
+    container_name: pizza-nats
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    ports:
+      - "4222:4222"   # client connections  (all apps connect here)
+      - "8222:8222"   # monitoring           (http://localhost:8222)
+    volumes:
+      - nats-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nats-server", "--help"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── One-shot init: create all streams + consumers ──────────────────────────
+  # Idempotent — safe to re-run; skips anything that already exists.
+  nats-init:
+    image: natsio/nats-box:latest
+    container_name: pizza-nats-init
+    depends_on:
+      - nats
+    restart: "no"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        SERVER="nats://nats:4222"
+
+        echo "[init] waiting for NATS at $$SERVER ..."
+        until nats --server "$$SERVER" rtt >/dev/null 2>&1; do
+          sleep 1
+        done
+        echo "[init] NATS is up."
+
+        # ══════════════════════════════════════════════════════════════════════
+        # STREAMS
+        # ══════════════════════════════════════════════════════════════════════
+
+        # ── AUTH_EVENTS (prod) ─────────────────────────────────────────────
+        # Publisher: Pizzasys
+        # Consumers: Inventory, HiringPizza
+        if nats --server "$$SERVER" stream info AUTH_EVENTS >/dev/null 2>&1; then
+          echo "[init] stream AUTH_EVENTS already exists — skipping"
+        else
+          nats --server "$$SERVER" stream add AUTH_EVENTS \
+            --subjects "auth.v1.>" \
+            --storage file \
+            --retention limits \
+            --discard old \
+            --max-msgs=-1 --max-bytes=-1 --max-age=0 --max-msg-size=-1 \
+            --dupe-window 2m \
+            --replicas 1 \
+            --defaults
+          echo "[init] created stream AUTH_EVENTS"
+        fi
+
+        # ── AUTH_TESTING_EVENTS (dev mode) ─────────────────────────────────
+        if nats --server "$$SERVER" stream info AUTH_TESTING_EVENTS >/dev/null 2>&1; then
+          echo "[init] stream AUTH_TESTING_EVENTS already exists — skipping"
+        else
+          nats --server "$$SERVER" stream add AUTH_TESTING_EVENTS \
+            --subjects "auth.testing.v1.>" \
+            --storage file \
+            --retention limits \
+            --discard old \
+            --max-msgs=-1 --max-bytes=-1 --max-age=0 --max-msg-size=-1 \
+            --dupe-window 2m \
+            --replicas 1 \
+            --defaults
+          echo "[init] created stream AUTH_TESTING_EVENTS"
+        fi
+
+        # ── HIRING_EVENTS (prod) ───────────────────────────────────────────
+        # Publisher: HiringPizza
+        # Consumers: Inventory, LC_PIZZA_DATA
+        if nats --server "$$SERVER" stream info HIRING_EVENTS >/dev/null 2>&1; then
+          echo "[init] stream HIRING_EVENTS already exists — skipping"
+        else
+          nats --server "$$SERVER" stream add HIRING_EVENTS \
+            --subjects "hiring.v1.>" \
+            --storage file \
+            --retention limits \
+            --discard old \
+            --max-msgs=-1 --max-bytes=-1 --max-age=0 --max-msg-size=-1 \
+            --dupe-window 2m \
+            --replicas 1 \
+            --defaults
+          echo "[init] created stream HIRING_EVENTS"
+        fi
+
+        # ── HIRING_TESTING_EVENTS (dev mode) ───────────────────────────────
+        if nats --server "$$SERVER" stream info HIRING_TESTING_EVENTS >/dev/null 2>&1; then
+          echo "[init] stream HIRING_TESTING_EVENTS already exists — skipping"
+        else
+          nats --server "$$SERVER" stream add HIRING_TESTING_EVENTS \
+            --subjects "hiring.testing.v1.>" \
+            --storage file \
+            --retention limits \
+            --discard old \
+            --max-msgs=-1 --max-bytes=-1 --max-age=0 --max-msg-size=-1 \
+            --dupe-window 2m \
+            --replicas 1 \
+            --defaults
+          echo "[init] created stream HIRING_TESTING_EVENTS"
+        fi
+
+        # ══════════════════════════════════════════════════════════════════════
+        # CONSUMERS  (pull, explicit ack, deliver=all so no messages are missed)
+        # ══════════════════════════════════════════════════════════════════════
+
+        # ── Inventory reads auth events ────────────────────────────────────
+        if nats --server "$$SERVER" consumer info AUTH_EVENTS INVENTORY_AUTH_CONSUMER >/dev/null 2>&1; then
+          echo "[init] consumer INVENTORY_AUTH_CONSUMER already exists — skipping"
+        else
+          nats --server "$$SERVER" consumer add AUTH_EVENTS INVENTORY_AUTH_CONSUMER \
+            --pull --deliver all --ack explicit \
+            --filter "auth.v1.>" \
+            --max-deliver=-1 --replay instant --defaults
+          echo "[init] created consumer INVENTORY_AUTH_CONSUMER"
+        fi
+
+        # ── Inventory reads auth events (dev mode) ─────────────────────────
+        if nats --server "$$SERVER" consumer info AUTH_TESTING_EVENTS INVENTORY_AUTH_TESTING_CONSUMER >/dev/null 2>&1; then
+          echo "[init] consumer INVENTORY_AUTH_TESTING_CONSUMER already exists — skipping"
+        else
+          nats --server "$$SERVER" consumer add AUTH_TESTING_EVENTS INVENTORY_AUTH_TESTING_CONSUMER \
+            --pull --deliver all --ack explicit \
+            --filter "auth.testing.v1.>" \
+            --max-deliver=-1 --replay instant --defaults
+          echo "[init] created consumer INVENTORY_AUTH_TESTING_CONSUMER"
+        fi
+
+        # ── HiringPizza reads auth events ──────────────────────────────────
+        if nats --server "$$SERVER" consumer info AUTH_EVENTS HIRING_AUTH_CONSUMER >/dev/null 2>&1; then
+          echo "[init] consumer HIRING_AUTH_CONSUMER already exists — skipping"
+        else
+          nats --server "$$SERVER" consumer add AUTH_EVENTS HIRING_AUTH_CONSUMER \
+            --pull --deliver all --ack explicit \
+            --filter "auth.v1.>" \
+            --max-deliver=-1 --replay instant --defaults
+          echo "[init] created consumer HIRING_AUTH_CONSUMER"
+        fi
+
+        # ── HiringPizza reads auth events (dev mode) ───────────────────────
+        if nats --server "$$SERVER" consumer info AUTH_TESTING_EVENTS HIRING_AUTH_TESTING_CONSUMER >/dev/null 2>&1; then
+          echo "[init] consumer HIRING_AUTH_TESTING_CONSUMER already exists — skipping"
+        else
+          nats --server "$$SERVER" consumer add AUTH_TESTING_EVENTS HIRING_AUTH_TESTING_CONSUMER \
+            --pull --deliver all --ack explicit \
+            --filter "auth.testing.v1.>" \
+            --max-deliver=-1 --replay instant --defaults
+          echo "[init] created consumer HIRING_AUTH_TESTING_CONSUMER"
+        fi
+
+        # ── Inventory reads hiring events ──────────────────────────────────
+        if nats --server "$$SERVER" consumer info HIRING_EVENTS INVENTORY_HIRING_CONSUMER >/dev/null 2>&1; then
+          echo "[init] consumer INVENTORY_HIRING_CONSUMER already exists — skipping"
+        else
+          nats --server "$$SERVER" consumer add HIRING_EVENTS INVENTORY_HIRING_CONSUMER \
+            --pull --deliver all --ack explicit \
+            --filter "hiring.v1.>" \
+            --max-deliver=-1 --replay instant --defaults
+          echo "[init] created consumer INVENTORY_HIRING_CONSUMER"
+        fi
+
+        # ── Inventory reads hiring events (dev mode) ───────────────────────
+        if nats --server "$$SERVER" consumer info HIRING_TESTING_EVENTS INVENTORY_HIRING_TESTING_CONSUMER >/dev/null 2>&1; then
+          echo "[init] consumer INVENTORY_HIRING_TESTING_CONSUMER already exists — skipping"
+        else
+          nats --server "$$SERVER" consumer add HIRING_TESTING_EVENTS INVENTORY_HIRING_TESTING_CONSUMER \
+            --pull --deliver all --ack explicit \
+            --filter "hiring.testing.v1.>" \
+            --max-deliver=-1 --replay instant --defaults
+          echo "[init] created consumer INVENTORY_HIRING_TESTING_CONSUMER"
+        fi
+
+        # ══════════════════════════════════════════════════════════════════════
+        echo ""
+        echo "[init] ===== current JetStream state ====="
+        nats --server "$$SERVER" stream ls
+        echo ""
+        echo "[init] consumers on AUTH_EVENTS:"
+        nats --server "$$SERVER" consumer ls AUTH_EVENTS
+        echo "[init] consumers on HIRING_EVENTS:"
+        nats --server "$$SERVER" consumer ls HIRING_EVENTS
+        echo "[init] DONE."
+
+volumes:
+  nats-data:
