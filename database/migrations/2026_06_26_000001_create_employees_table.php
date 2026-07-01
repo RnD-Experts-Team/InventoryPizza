@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('first_name', 100);
             $table->string('middle_name', 100)->nullable();
             $table->string('last_name', 100);
-            $table->string('store_id', 100);             // matches stores.id
+            $table->unsignedBigInteger('store_id');      // matches stores.id
             $table->boolean('active')->default(true);
             $table->timestamps();
         });

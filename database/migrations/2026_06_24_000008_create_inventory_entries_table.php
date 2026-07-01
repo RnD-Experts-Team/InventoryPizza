@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('link_id')->constrained('inventory_links');
             $table->string('submitted_by', 255);
-            $table->string('store_id', 100);
+            $table->unsignedBigInteger('store_id');
             $table->foreign('store_id')->references('id')->on('stores');
             $table->date('date');
             $table->enum('type', ['daily', 'weekly', 'period']);

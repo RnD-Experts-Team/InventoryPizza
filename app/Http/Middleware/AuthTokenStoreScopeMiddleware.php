@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Store;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -143,6 +144,12 @@ class AuthTokenStoreScopeMiddleware
             $body = (array) ($request->except(['entities', 'file', 'files']) ?? []);
         }
 
+        // The frontend sends store_number as `store_id`. The Auth Service knows stores
+        // by their internal integer id, so resolve it before sending store_context.
+        if (isset($body['store_id'])) {
+            $body['store_id'] = Store::idFromNumber((string) $body['store_id']) ?? $body['store_id'];
+        }
+
         // Add any request headers you want authz to inspect here
         $headerKeys = [
             'X-Store-Id',
@@ -186,8 +193,13 @@ class AuthTokenStoreScopeMiddleware
                 $out[$k] = (int) $v->id;
                 continue;
             }
-            // Scalars (strings, integers) pass through as-is
-            // e.g. store_id = "03795-00001" stays a string
+            // {store_id} in the URL is a store_number from the frontend — resolve it to
+            // the internal integer id the Auth Service expects.
+            if ($k === 'store_id') {
+                $out[$k] = Store::idFromNumber((string) $v) ?? $v;
+                continue;
+            }
+            // Other scalars (tokens, etc.) pass through as-is
             $out[$k] = $v;
         }
         return $out;

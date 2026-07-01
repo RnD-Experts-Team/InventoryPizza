@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('stores', function (Blueprint $table) {
-            $table->string('id', 100)->primary();   // Auth Service controls the ID (string)
-            $table->string('store_number', 100)->nullable();
+            $table->unsignedBigInteger('id')->primary();   // Auth Service controls the ID (integer)
+            $table->string('store_number', 100)->unique(); // human-facing code the frontend sends
             $table->string('name', 255)->nullable();
             $table->boolean('is_active')->default(true);
             $table->softDeletes();

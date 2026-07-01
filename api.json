@@ -56,7 +56,7 @@
         "/inventory/stores/{store_id}/entries": {
             "get": {
                 "operationId": "inventory.store.entries.index",
-                "summary": "List entries for a specific store \u2014 auth service validates the store_id in the path",
+                "summary": "List entries for a specific store. The {store_id} in the URL is the store_number\nthe frontend sends; we resolve it to the internal integer id",
                 "tags": [
                     "Entry"
                 ],
@@ -209,6 +209,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
                     }
                 }
             }
@@ -708,7 +711,7 @@
         "/inventory/stores/{store_id}/links": {
             "get": {
                 "operationId": "inventory.store.links.index",
-                "summary": "List links for a specific store \u2014 auth service validates the store_id in the path",
+                "summary": "List links for a specific store. The {store_id} in the URL is the store_number\nthe frontend sends; we resolve it to the internal integer id",
                 "tags": [
                     "Link"
                 ],
@@ -861,6 +864,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
                     }
                 }
             }
@@ -1378,12 +1384,16 @@
                             "id": {
                                 "type": "string"
                             },
+                            "store_number": {
+                                "type": "string"
+                            },
                             "name": {
                                 "type": "string"
                             }
                         },
                         "required": [
                             "id",
+                            "store_number",
                             "name"
                         ]
                     },
@@ -1507,12 +1517,16 @@
                             "id": {
                                 "type": "string"
                             },
+                            "store_number": {
+                                "type": "string"
+                            },
                             "name": {
                                 "type": "string"
                             }
                         },
                         "required": [
                             "id",
+                            "store_number",
                             "name"
                         ]
                     },
@@ -1671,12 +1685,16 @@
                             "id": {
                                 "type": "string"
                             },
+                            "store_number": {
+                                "type": "string"
+                            },
                             "name": {
                                 "type": "string"
                             }
                         },
                         "required": [
                             "id",
+                            "store_number",
                             "name"
                         ]
                     },
@@ -1732,11 +1750,15 @@
                     "store": {
                         "type": "object",
                         "properties": {
+                            "store_number": {
+                                "type": "string"
+                            },
                             "name": {
                                 "type": "string"
                             }
                         },
                         "required": [
+                            "store_number",
                             "name"
                         ]
                     },
@@ -1886,6 +1908,7 @@
                             "array",
                             "null"
                         ],
+                        "description": "Frontend sends store_numbers, not internal ids.",
                         "items": {
                             "type": "string"
                         }
@@ -1908,7 +1931,8 @@
                 "type": "object",
                 "properties": {
                     "store_id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Value is a store_number, not the internal id."
                     },
                     "date": {
                         "type": "string",
@@ -2101,6 +2125,7 @@
                             "array",
                             "null"
                         ],
+                        "description": "Frontend sends store_numbers, not internal ids.",
                         "items": {
                             "type": "string"
                         }

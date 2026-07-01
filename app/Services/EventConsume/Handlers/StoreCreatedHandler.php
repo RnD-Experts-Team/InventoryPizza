@@ -12,8 +12,8 @@ class StoreCreatedHandler implements EventHandlerInterface
     {
         $storePayload = $this->extractStorePayload($event);
 
-        $id = trim((string) data_get($storePayload, 'id', ''));
-        if ($id === '') {
+        $id = (int) data_get($storePayload, 'id', 0);
+        if ($id <= 0) {
             throw new \Exception('StoreCreatedHandler: missing/invalid store.id');
         }
 

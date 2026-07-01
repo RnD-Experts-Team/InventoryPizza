@@ -15,7 +15,10 @@ class Employee extends Model
 
     protected function casts(): array
     {
-        return ['active' => 'boolean'];
+        return [
+            'active'   => 'boolean',
+            'store_id' => 'integer',
+        ];
     }
 
     public function getFullNameAttribute(): string

@@ -10,15 +10,15 @@ class StoreDeletedHandler implements EventHandlerInterface
 {
     public function handle(array $event): void
     {
-        $storeId = trim((string) (
+        $storeId = (int) (
             data_get($event, 'data.store_id')
                 ?? data_get($event, 'store_id')
                 ?? data_get($event, 'data.store.id')
                 ?? data_get($event, 'store.id')
-                ?? ''
-        ));
+                ?? 0
+        );
 
-        if ($storeId === '') {
+        if ($storeId <= 0) {
             throw new \Exception('StoreDeletedHandler: missing/invalid store_id');
         }
 
