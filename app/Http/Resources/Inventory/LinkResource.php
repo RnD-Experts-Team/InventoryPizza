@@ -19,8 +19,9 @@ class LinkResource extends JsonResource
                 'store_id'  => $this->employee->store_id,
             ] : null),
             'store'      => $this->whenLoaded('store', fn () => [
-                'id'   => $this->store->id,
-                'name' => $this->store->name,
+                'id'           => $this->store->id,
+                'store_number' => $this->store->store_number,
+                'name'         => $this->store->name,
             ]),
             'date'       => $this->date?->toDateString(),
             'type'       => $this->type,

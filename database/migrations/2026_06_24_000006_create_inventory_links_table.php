@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('token', 64)->unique();
             $table->string('user_name', 255);           // display-name snapshot (employee full name)
             $table->unsignedBigInteger('employee_id')->nullable(); // the counter (from HiringPizza)
-            $table->string('store_id', 100);
+            $table->unsignedBigInteger('store_id');
             $table->foreign('store_id')->references('id')->on('stores');
             $table->date('date');
             $table->enum('type', ['daily', 'weekly', 'period']);

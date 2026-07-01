@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Inventory;
 
+use App\Models\Store;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreItemRequest extends FormRequest
@@ -30,8 +31,23 @@ class StoreItemRequest extends FormRequest
             'types'             => ['required', 'array'],
             'types.*'           => ['in:daily,weekly,period'],
             'all_stores'        => ['required', 'boolean'],
+            // Frontend sends store_numbers, not internal ids.
             'store_ids'         => ['required_if:all_stores,false', 'nullable', 'array'],
-            'store_ids.*'       => ['exists:stores,id'],
+            'store_ids.*'       => ['exists:stores,store_number'],
         ];
+    }
+
+    /**
+     * Convert the store_numbers the frontend sent into internal integer store ids.
+     */
+    public function validated($key = null, $default = null): array
+    {
+        $data = parent::validated($key, $default);
+
+        if (! empty($data['store_ids'])) {
+            $data['store_ids'] = Store::whereIn('store_number', $data['store_ids'])->pluck('id')->all();
+        }
+
+        return $data;
     }
 }

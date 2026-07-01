@@ -4,23 +4,27 @@ namespace App\Services\EventConsume\Handlers;
 
 trait EmployeeHandlerHelpers
 {
-    private function resolveStoreId(array $emp, array $event): string
+    private function resolveStoreId(array $emp, array $event): int
     {
+        // The value written to employees.store_id MUST equal stores.id (now an integer).
+        $raw = null;
+
         $stores = data_get($emp, 'stores', []);
         if (is_array($stores) && count($stores) > 0) {
             $latest = $this->latestEntry($stores);
-            $num    = data_get($latest, 'store_number');
-            if (is_string($num) && trim($num) !== '') {
-                return trim($num);
-            }
+            $raw    = data_get($latest, 'store_number');
         }
 
-        $num = data_get($event, 'data.store_number') ?? data_get($event, 'store_number');
-        if (is_string($num) && trim($num) !== '') {
-            return trim($num);
+        if ($raw === null || (is_string($raw) && trim($raw) === '')) {
+            $raw = data_get($event, 'data.store_number') ?? data_get($event, 'store_number');
         }
 
-        throw new \Exception('EmployeeHandler: cannot resolve store_id from payload');
+        $storeId = (int) $raw;
+        if ($storeId <= 0) {
+            throw new \Exception('EmployeeHandler: cannot resolve numeric store_id from payload');
+        }
+
+        return $storeId;
     }
 
     private function resolveActive(array $emp): bool

@@ -24,8 +24,9 @@ class InventoryLink extends Model
     protected function casts(): array
     {
         return [
-            'date'   => 'date',
-            'status' => 'string',
+            'date'     => 'date',
+            'status'   => 'string',
+            'store_id' => 'integer',
         ];
     }
 

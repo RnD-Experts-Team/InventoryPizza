@@ -23,6 +23,7 @@ class Entry extends Model
         return [
             'date'         => 'date',
             'submitted_at' => 'datetime',
+            'store_id'     => 'integer',
         ];
     }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\StoreLinkRequest;
 use App\Http\Resources\Inventory\LinkResource;
 use App\Models\Inventory\InventoryLink;
+use App\Models\Store;
 use App\Services\Inventory\LinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,15 +16,21 @@ class LinkController extends Controller
 {
     public function __construct(private readonly LinkService $linkService) {}
 
-    /** List links for a specific store — auth service validates the store_id in the path. */
+    /**
+     * List links for a specific store. The {store_id} in the URL is the store_number
+     * the frontend sends; we resolve it to the internal integer id.
+     */
     public function indexByStore(Request $request, string $store_id): AnonymousResourceCollection
     {
+        $realStoreId = Store::idFromNumber($store_id);
+        abort_if($realStoreId === null, 404, 'Store not found.');
+
         $perPage = min((int) $request->query('per_page', 50), 200);
 
         return LinkResource::collection(
             InventoryLink::with(['store', 'creator', 'employee'])
                 ->withCount('items')
-                ->where('store_id', $store_id)
+                ->where('store_id', $realStoreId)
                 ->latest()
                 ->paginate($perPage)
         );

@@ -27,8 +27,9 @@ class ItemResource extends JsonResource
             'types'             => $this->types,
             'all_stores'        => $this->all_stores,
             'stores'            => $this->whenLoaded('stores', fn () => $this->stores->map(fn ($s) => [
-                'id'   => $s->id,
-                'name' => $s->name,
+                'id'           => $s->id,
+                'store_number' => $s->store_number,
+                'name'         => $s->name,
             ])),
         ];
     }

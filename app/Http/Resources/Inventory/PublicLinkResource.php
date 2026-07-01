@@ -12,7 +12,8 @@ class PublicLinkResource extends JsonResource
         return [
             'user_name' => $this->user_name,
             'store'     => $this->whenLoaded('store', fn () => [
-                'name' => $this->store->name,
+                'store_number' => $this->store->store_number,
+                'name'         => $this->store->name,
             ]),
             'date'      => $this->date?->toDateString(),
             'type'      => $this->type,
