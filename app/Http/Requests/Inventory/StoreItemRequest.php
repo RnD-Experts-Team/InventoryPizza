@@ -22,7 +22,7 @@ class StoreItemRequest extends FormRequest
             'details_en'        => ['nullable', 'string'],
             'details_ar'        => ['nullable', 'string'],
             'details_es'        => ['nullable', 'string'],
-            'image'             => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'image'             => ['nullable', 'file', 'mimes:jpg,jpeg,png'],
             'unit_1_id'         => ['required', 'exists:inventory_units,id'],
             'unit_2_id'         => ['required', 'exists:inventory_units,id', 'different:unit_1_id'],
             'unit_2_per_unit_1' => ['required', 'numeric', 'min:0.0001'],

@@ -17,7 +17,11 @@ class EntryService
         private readonly LinkService $linkService,
     ) {}
 
-    public function getAll(?string $storeId = null, int $perPage = 50): LengthAwarePaginator
+    /**
+     * @param int|null $storeId  internal integer store id (already resolved)
+     * @param array    $filters  optional: date_from, date_to, type, submitted_by, edited(bool)
+     */
+    public function getAll(?int $storeId = null, int $perPage = 50, array $filters = []): LengthAwarePaginator
     {
         $query = Entry::with('store')
             ->withCount(['items', 'items as edited_items_count' => fn ($q) => $q->where('is_edited', true)])
@@ -27,28 +31,54 @@ class EntryService
             $query->where('store_id', $storeId);
         }
 
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('date', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('date', '<=', $filters['date_to']);
+        }
+        if (! empty($filters['type'])) {
+            $query->where('type', $filters['type']);
+        }
+        if (! empty($filters['submitted_by'])) {
+            $query->where('submitted_by', 'like', '%'.$filters['submitted_by'].'%');
+        }
+        if (array_key_exists('edited', $filters) && $filters['edited'] !== null) {
+            $filters['edited']
+                ? $query->whereHas('items', fn ($q) => $q->where('is_edited', true))
+                : $query->whereDoesntHave('items', fn ($q) => $q->where('is_edited', true));
+        }
+
         return $query->paginate($perPage);
     }
 
-    public function getOne(Entry $entry, bool $withEditHistory = false): Entry
+    /** Load an entry without edit history (basic detail view). */
+    public function getOne(Entry $entry): Entry
     {
-        $relations = [
+        return $entry->load([
             'store',
             'items.item.unit1',
             'items.item.unit2',
             'items.item.unit3',
-        ];
-
-        if ($withEditHistory) {
-            $relations[] = 'items.edits.editor';
-        }
-
-        $entry->load($relations)->loadCount([
+        ])->loadCount([
             'items',
             'items as edited_items_count' => fn ($q) => $q->where('is_edited', true),
         ]);
+    }
 
-        return $entry;
+    /** Load an entry with the full append-only edit history on each item. */
+    public function getOneWithHistory(Entry $entry): Entry
+    {
+        return $entry->load([
+            'store',
+            'items.item.unit1',
+            'items.item.unit2',
+            'items.item.unit3',
+            'items.edits.editor',
+        ])->loadCount([
+            'items',
+            'items as edited_items_count' => fn ($q) => $q->where('is_edited', true),
+        ]);
     }
 
     public function createFromPublicSubmission(InventoryLink $link, array $itemCounts): Entry

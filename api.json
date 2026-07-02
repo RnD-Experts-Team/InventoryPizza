@@ -13,7 +13,7 @@
         "/inventory/entries/{entry}": {
             "get": {
                 "operationId": "inventory.entries.show",
-                "summary": "Entry detail with items. Edit history only visible to inventory_specialist",
+                "summary": "Entry detail WITHOUT edit history.\nThe Auth Service decides who has permission to hit this route",
                 "tags": [
                     "Entry"
                 ],
@@ -53,6 +53,49 @@
                 }
             }
         },
+        "/inventory/entries/{entry}/history": {
+            "get": {
+                "operationId": "inventory.entries.show.history",
+                "summary": "Entry detail WITH the full append-only edit history on each item.\nThe Auth Service decides who has permission to hit this route",
+                "tags": [
+                    "Entry"
+                ],
+                "parameters": [
+                    {
+                        "name": "entry",
+                        "in": "path",
+                        "required": true,
+                        "description": "The entry ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`EntryWithHistoryResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/EntryWithHistoryResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    }
+                }
+            }
+        },
         "/inventory/stores/{store_id}/entries": {
             "get": {
                 "operationId": "inventory.store.entries.index",
@@ -67,6 +110,64 @@
                         "required": true,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "daily",
+                                "weekly",
+                                "period"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "submitted_by",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
+                        }
+                    },
+                    {
+                        "name": "edited",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
                         }
                     }
                 ],
@@ -212,6 +313,9 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -723,6 +827,67 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "daily",
+                                "weekly",
+                                "period"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "active",
+                                "submitted"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "employee_id",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        }
                     }
                 ],
                 "responses": {
@@ -867,6 +1032,9 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -1562,6 +1730,72 @@
                 ],
                 "title": "EntryResource"
             },
+            "EntryWithHistoryResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "submitted_by": {
+                        "type": "string"
+                    },
+                    "store": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "store_number": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "store_number",
+                            "name"
+                        ]
+                    },
+                    "date": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "items_count": {
+                        "type": "string"
+                    },
+                    "edited_items_count": {
+                        "type": "string"
+                    },
+                    "submitted_at": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "reference",
+                    "submitted_by",
+                    "date",
+                    "type",
+                    "status",
+                    "items_count",
+                    "edited_items_count",
+                    "submitted_at"
+                ],
+                "title": "EntryWithHistoryResource"
+            },
             "ItemResource": {
                 "type": "object",
                 "properties": {
@@ -1862,8 +2096,7 @@
                             "null"
                         ],
                         "format": "binary",
-                        "contentMediaType": "application/octet-stream",
-                        "maxLength": 2048
+                        "contentMediaType": "application/octet-stream"
                     },
                     "unit_1_id": {
                         "type": "integer"
