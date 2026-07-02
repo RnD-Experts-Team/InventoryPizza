@@ -8,38 +8,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Users are replicated from the Auth Service — IDs are controlled externally,
-        // so no auto-increment. Password is nullable because users never log in locally.
+        // Users are replicated from the Auth Service — no local login, no sessions,
+        // no password reset. Only the fields we actually need.
         Schema::create('users', function (Blueprint $table) {
             $table->unsignedBigInteger('id')->primary();
             $table->string('name');
             $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password')->nullable();
-            $table->rememberToken();
             $table->timestamps();
         });
 
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
-        });
-
-        Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
-        });
+        // password_reset_tokens: intentionally NOT created — no local password reset.
+        // sessions:               intentionally NOT created — stateless API, no session auth.
     }
 
     public function down(): void
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
     }
 };

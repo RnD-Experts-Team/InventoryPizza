@@ -6,10 +6,13 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Entry detail without edit history. Returned by GET /inventory/entries/{entry}.
- * For the version with edit history, see EntryWithHistoryResource.
+ * Entry detail WITH the append-only edit history for each item.
+ * Returned by GET /inventory/entries/{entry}/history.
+ *
+ * The Auth Service is what decides which users may hit that endpoint —
+ * this resource itself does no permission checking.
  */
-class EntryDetailResource extends JsonResource
+class EntryWithHistoryResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -33,6 +36,8 @@ class EntryDetailResource extends JsonResource
             'count_unit_2'    => $entryItem->count_unit_2,
             'count_unit_3'    => $entryItem->count_unit_3,
             'total_in_unit_1' => $entryItem->total_in_unit_1,
+            'is_edited'       => $entryItem->is_edited,
+            'edits'           => EntryItemEditResource::collection($entryItem->edits),
         ]));
 
         return array_merge((new EntryResource($this->resource))->toArray($request), [

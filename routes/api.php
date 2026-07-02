@@ -52,7 +52,11 @@ Route::prefix('inventory')
         Route::get('links/{link}', [LinkController::class, 'show'])->name('inventory.links.show');
 
         // ── Entries ──────────────────────────────────────────────────────────
-        Route::get('entries/{entry}', [EntryController::class, 'show'])->name('inventory.entries.show');
+        // Two shapes, two permissions — the Auth Service decides who can hit which.
+        Route::get('entries/{entry}',         [EntryController::class, 'show'])
+            ->name('inventory.entries.show');
+        Route::get('entries/{entry}/history', [EntryController::class, 'showWithHistory'])
+            ->name('inventory.entries.show.history');
 
         // ── Entry Items ──────────────────────────────────────────────────────
         Route::patch('entry-items/{entryItem}', [EntryItemController::class, 'update'])->name('inventory.entry-items.update');
