@@ -414,7 +414,7 @@
         "/inventory/items": {
             "get": {
                 "operationId": "inventory.items.index",
-                "summary": "List all inventory items with units and stores",
+                "summary": "List inventory items with units and stores. Pass ?active=true|false to filter by status",
                 "tags": [
                     "Item"
                 ],
@@ -699,7 +699,7 @@
             },
             "delete": {
                 "operationId": "inventory.items.destroy",
-                "summary": "Delete an inventory item",
+                "summary": "Hard-delete an inventory item. Only succeeds if the item was never used\n(no entries, no links); otherwise returns 422. For normal use, deactivate instead",
                 "tags": [
                     "Item"
                 ],
@@ -717,6 +717,70 @@
                 "responses": {
                     "204": {
                         "description": "No content"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    }
+                }
+            }
+        },
+        "/inventory/items/{item}/active": {
+            "patch": {
+                "operationId": "inventory.items.set-active",
+                "summary": "Activate or deactivate an item. Body: { \"is_active\": true|false }",
+                "tags": [
+                    "Item"
+                ],
+                "parameters": [
+                    {
+                        "name": "item",
+                        "in": "path",
+                        "required": true,
+                        "description": "The item ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "is_active": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": [
+                                    "is_active"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "`ItemResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ItemResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     },
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
@@ -1833,7 +1897,14 @@
                         "$ref": "#/components/schemas/UnitResource"
                     },
                     "unit_2": {
-                        "$ref": "#/components/schemas/UnitResource"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/UnitResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "unit_2_per_unit_1": {
                         "type": "string"
@@ -1857,6 +1928,9 @@
                     "all_stores": {
                         "type": "string"
                     },
+                    "is_active": {
+                        "type": "string"
+                    },
                     "stores": {
                         "type": "string"
                     }
@@ -1871,11 +1945,13 @@
                     "details_ar",
                     "details_es",
                     "image",
+                    "unit_2",
                     "unit_2_per_unit_1",
                     "unit_3",
                     "unit_3_per_unit_2",
                     "types",
-                    "all_stores"
+                    "all_stores",
+                    "is_active"
                 ],
                 "title": "ItemResource"
             },
@@ -1938,6 +2014,9 @@
                     "type": {
                         "type": "string"
                     },
+                    "lang": {
+                        "type": "string"
+                    },
                     "status": {
                         "type": "string"
                     },
@@ -1969,6 +2048,7 @@
                     "url",
                     "date",
                     "type",
+                    "lang",
                     "status",
                     "items_count",
                     "created_at"
@@ -1980,6 +2060,19 @@
                 "properties": {
                     "user_name": {
                         "type": "string"
+                    },
+                    "lang": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "en"
+                                ]
+                            }
+                        ]
                     },
                     "store": {
                         "type": "object",
@@ -2008,6 +2101,7 @@
                 },
                 "required": [
                     "user_name",
+                    "lang",
                     "date",
                     "type"
                 ],
@@ -2029,7 +2123,10 @@
                                     "minimum": 0
                                 },
                                 "count_unit_2": {
-                                    "type": "number",
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
                                     "minimum": 0
                                 },
                                 "count_unit_3": {
@@ -2042,8 +2139,7 @@
                             },
                             "required": [
                                 "item_id",
-                                "count_unit_1",
-                                "count_unit_2"
+                                "count_unit_1"
                             ]
                         },
                         "minItems": 1
@@ -2102,17 +2198,25 @@
                         "type": "integer"
                     },
                     "unit_2_id": {
-                        "type": "integer"
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "Second unit is optional; if present it must differ from unit_1 and needs a ratio."
                     },
                     "unit_2_per_unit_1": {
-                        "type": "number",
+                        "type": [
+                            "number",
+                            "null"
+                        ],
                         "minimum": 0.0001
                     },
                     "unit_3_id": {
                         "type": [
                             "integer",
                             "null"
-                        ]
+                        ],
+                        "description": "Third unit only makes sense when a second unit exists (unit_3 converts into unit_2)."
                     },
                     "unit_3_per_unit_2": {
                         "type": [
@@ -2153,8 +2257,6 @@
                     "name_ar",
                     "name_es",
                     "unit_1_id",
-                    "unit_2_id",
-                    "unit_2_per_unit_1",
                     "all_stores",
                     "types"
                 ],
@@ -2179,6 +2281,15 @@
                             "period"
                         ]
                     },
+                    "lang": {
+                        "type": "string",
+                        "description": "Language the public form will display item names/details in.",
+                        "enum": [
+                            "en",
+                            "ar",
+                            "es"
+                        ]
+                    },
                     "employee_ids": {
                         "type": "array",
                         "description": "The employees (counters) the manager picked \u2014 one link per employee.",
@@ -2192,6 +2303,7 @@
                     "store_id",
                     "date",
                     "type",
+                    "lang",
                     "employee_ids"
                 ],
                 "title": "StoreLinkRequest"
@@ -2319,10 +2431,17 @@
                         "type": "integer"
                     },
                     "unit_2_id": {
-                        "type": "integer"
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "Second unit is optional; if present it must differ from unit_1 and needs a ratio."
                     },
                     "unit_2_per_unit_1": {
-                        "type": "number",
+                        "type": [
+                            "number",
+                            "null"
+                        ],
                         "minimum": 0.0001
                     },
                     "unit_3_id": {
@@ -2370,8 +2489,6 @@
                     "name_ar",
                     "name_es",
                     "unit_1_id",
-                    "unit_2_id",
-                    "unit_2_per_unit_1",
                     "all_stores",
                     "types"
                 ],

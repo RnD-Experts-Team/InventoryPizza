@@ -23,6 +23,8 @@ class StoreLinkRequest extends FormRequest
             'store_id'       => ['required', 'exists:stores,store_number'],
             'date'           => ['required', 'date'],
             'type'           => ['required', 'in:daily,weekly,period'],
+            // Language the public form will display item names/details in.
+            'lang'           => ['required', 'in:en,ar,es'],
             // The employees (counters) the manager picked — one link per employee.
             'employee_ids'   => ['required', 'array', 'min:1'],
             'employee_ids.*' => [

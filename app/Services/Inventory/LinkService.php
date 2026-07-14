@@ -41,6 +41,7 @@ class LinkService
                 'store_id'    => $data['store_id'],
                 'date'        => $data['date'],
                 'type'        => $data['type'],
+                'lang'        => $data['lang'],
                 'status'      => 'active',
                 'created_by'  => $creator->id,
             ]);
@@ -69,6 +70,7 @@ class LinkService
     private function resolveItemsForStore(string $type, string $storeId): array
     {
         return Item::query()
+            ->where('is_active', true)
             ->whereJsonContains('types', $type)
             ->where(function ($q) use ($storeId) {
                 $q->where('all_stores', true)

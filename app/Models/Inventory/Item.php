@@ -19,7 +19,7 @@ class Item extends Model
         'details_en', 'details_ar', 'details_es', 'image',
         'unit_1_id', 'unit_2_id', 'unit_2_per_unit_1',
         'unit_3_id', 'unit_3_per_unit_2', 'types', 'all_stores',
-        'created_by',
+        'is_active', 'created_by',
     ];
 
     protected function casts(): array
@@ -27,6 +27,7 @@ class Item extends Model
         return [
             'types'            => 'array',
             'all_stores'       => 'boolean',
+            'is_active'        => 'boolean',
             'unit_2_per_unit_1' => 'decimal:4',
             'unit_3_per_unit_2' => 'decimal:4',
         ];

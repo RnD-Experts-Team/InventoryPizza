@@ -103,14 +103,16 @@ class EntryService
 
             foreach ($itemCounts as $row) {
                 $item = \App\Models\Inventory\Item::find($row['item_id']);
+                $countU2 = $row['count_unit_2'] ?? 0;
                 $countU3 = $row['count_unit_3'] ?? 0;
+                $u2PerU1 = (float) ($item->unit_2_per_unit_1 ?? 0);
                 $u3PerU2 = (float) ($item->unit_3_per_unit_2 ?? 0);
 
                 $total = $this->calculator->calculate(
                     (float) $row['count_unit_1'],
-                    (float) $row['count_unit_2'],
+                    (float) $countU2,
                     (float) $countU3,
-                    (float) $item->unit_2_per_unit_1,
+                    $u2PerU1,
                     $u3PerU2,
                 );
 
@@ -118,7 +120,7 @@ class EntryService
                     'entry_id'       => $entry->id,
                     'item_id'        => $item->id,
                     'count_unit_1'   => $row['count_unit_1'],
-                    'count_unit_2'   => $row['count_unit_2'],
+                    'count_unit_2'   => $countU2,
                     'count_unit_3'   => $countU3,
                     'total_in_unit_1' => $total,
                     'is_edited'      => false,
@@ -139,14 +141,16 @@ class EntryService
     ): EntryItem {
         return DB::transaction(function () use ($entryItem, $newCounts, $reason, $editor) {
             $item = $entryItem->item;
+            $countU2 = $newCounts['count_unit_2'] ?? 0;
             $countU3 = $newCounts['count_unit_3'] ?? 0;
+            $u2PerU1 = (float) ($item->unit_2_per_unit_1 ?? 0);
             $u3PerU2 = (float) ($item->unit_3_per_unit_2 ?? 0);
 
             $newTotal = $this->calculator->calculate(
                 (float) $newCounts['count_unit_1'],
-                (float) $newCounts['count_unit_2'],
+                (float) $countU2,
                 (float) $countU3,
-                (float) $item->unit_2_per_unit_1,
+                $u2PerU1,
                 $u3PerU2,
             );
 
@@ -157,7 +161,7 @@ class EntryService
                 'prev_count_unit_3' => $entryItem->count_unit_3,
                 'prev_total'        => $entryItem->total_in_unit_1,
                 'new_count_unit_1'  => $newCounts['count_unit_1'],
-                'new_count_unit_2'  => $newCounts['count_unit_2'],
+                'new_count_unit_2'  => $countU2,
                 'new_count_unit_3'  => $countU3,
                 'new_total'         => $newTotal,
                 'reason'            => $reason,
@@ -167,7 +171,7 @@ class EntryService
 
             $entryItem->update([
                 'count_unit_1'   => $newCounts['count_unit_1'],
-                'count_unit_2'   => $newCounts['count_unit_2'],
+                'count_unit_2'   => $countU2,
                 'count_unit_3'   => $countU3,
                 'total_in_unit_1' => $newTotal,
                 'is_edited'      => true,

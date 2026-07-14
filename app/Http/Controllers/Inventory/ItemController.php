@@ -16,12 +16,13 @@ class ItemController extends Controller
 {
     public function __construct(private readonly ItemService $itemService) {}
 
-    /** List all inventory items with units and stores. */
+    /** List inventory items with units and stores. Pass ?active=true|false to filter by status. */
     public function index(Request $request): AnonymousResourceCollection
     {
         $perPage = min((int) $request->query('per_page', 50), 200);
+        $active  = $request->has('active') ? $request->boolean('active') : null;
 
-        return ItemResource::collection($this->itemService->getAll($perPage));
+        return ItemResource::collection($this->itemService->getAll($perPage, $active));
     }
 
     /**
@@ -50,7 +51,18 @@ class ItemController extends Controller
         return new ItemResource($this->itemService->update($item, $request->validated(), $request->file('image')));
     }
 
-    /** Delete an inventory item. */
+    /** Activate or deactivate an item. Body: { "is_active": true|false }. */
+    public function setActive(Request $request, Item $item): ItemResource
+    {
+        $data = $request->validate(['is_active' => ['required', 'boolean']]);
+
+        return new ItemResource($this->itemService->setActive($item, $data['is_active']));
+    }
+
+    /**
+     * Hard-delete an inventory item. Only succeeds if the item was never used
+     * (no entries, no links); otherwise returns 422. For normal use, deactivate instead.
+     */
     public function destroy(Item $item): JsonResponse
     {
         $this->itemService->delete($item);
