@@ -19,7 +19,7 @@ class PublicSubmitEntryRequest extends FormRequest
             'items'               => ['required', 'array', 'min:1'],
             'items.*.item_id'     => ['required', 'exists:inventory_items,id'],
             'items.*.count_unit_1' => ['required', 'numeric', 'min:0'],
-            'items.*.count_unit_2' => ['required', 'numeric', 'min:0'],
+            'items.*.count_unit_2' => ['nullable', 'numeric', 'min:0'],
             'items.*.count_unit_3' => ['nullable', 'numeric', 'min:0'],
         ];
     }

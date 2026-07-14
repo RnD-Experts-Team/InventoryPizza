@@ -4,12 +4,23 @@ namespace App\Http\Requests\Inventory;
 
 use App\Models\Store;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
+    }
+
+    /** A third unit only makes sense when a second unit exists. */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            if ($this->filled('unit_3_id') && ! $this->filled('unit_2_id')) {
+                $validator->errors()->add('unit_3_id', 'A third unit requires a second unit to be set.');
+            }
+        });
     }
 
     public function rules(): array
@@ -24,8 +35,10 @@ class StoreItemRequest extends FormRequest
             'details_es'        => ['nullable', 'string'],
             'image'             => ['nullable', 'file', 'mimes:jpg,jpeg,png'],
             'unit_1_id'         => ['required', 'exists:inventory_units,id'],
-            'unit_2_id'         => ['required', 'exists:inventory_units,id', 'different:unit_1_id'],
-            'unit_2_per_unit_1' => ['required', 'numeric', 'min:0.0001'],
+            // Second unit is optional; if present it must differ from unit_1 and needs a ratio.
+            'unit_2_id'         => ['nullable', 'exists:inventory_units,id', 'different:unit_1_id'],
+            'unit_2_per_unit_1' => ['required_with:unit_2_id', 'nullable', 'numeric', 'min:0.0001'],
+            // Third unit only makes sense when a second unit exists (unit_3 converts into unit_2).
             'unit_3_id'         => ['nullable', 'exists:inventory_units,id'],
             'unit_3_per_unit_2' => ['required_with:unit_3_id', 'nullable', 'numeric', 'min:0.0001'],
             'types'             => ['required', 'array'],

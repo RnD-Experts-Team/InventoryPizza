@@ -18,7 +18,7 @@ class InventoryLink extends Model
     protected $table = 'inventory_links';
 
     protected $fillable = [
-        'token', 'user_name', 'employee_id', 'store_id', 'date', 'type', 'status', 'created_by',
+        'token', 'user_name', 'employee_id', 'store_id', 'date', 'type', 'lang', 'status', 'created_by',
     ];
 
     protected function casts(): array

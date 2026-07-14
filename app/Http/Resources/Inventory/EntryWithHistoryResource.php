@@ -25,7 +25,9 @@ class EntryWithHistoryResource extends JsonResource
                 'name_ar'           => $entryItem->item->name_ar,
                 'name_es'           => $entryItem->item->name_es,
                 'unit_1'            => ['id' => $entryItem->item->unit1->id, 'name' => $entryItem->item->unit1->name],
-                'unit_2'            => ['id' => $entryItem->item->unit2->id, 'name' => $entryItem->item->unit2->name],
+                'unit_2'            => $entryItem->item->unit2
+                    ? ['id' => $entryItem->item->unit2->id, 'name' => $entryItem->item->unit2->name]
+                    : null,
                 'unit_2_per_unit_1' => $entryItem->item->unit_2_per_unit_1,
                 'unit_3'            => $entryItem->item->unit3
                     ? ['id' => $entryItem->item->unit3->id, 'name' => $entryItem->item->unit3->name]

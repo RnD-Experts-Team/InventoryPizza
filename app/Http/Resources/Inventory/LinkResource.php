@@ -25,6 +25,7 @@ class LinkResource extends JsonResource
             ]),
             'date'       => $this->date?->toDateString(),
             'type'       => $this->type,
+            'lang'       => $this->lang,
             'status'     => $this->status,
             'items_count' => $this->items_count ?? $this->items()->count(),
             'created_by' => $this->whenLoaded('creator', fn () => [

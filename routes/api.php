@@ -45,6 +45,7 @@ Route::prefix('inventory')
         Route::post('items',          [ItemController::class, 'store'])->name('inventory.items.store');
         Route::get('items/{item}',    [ItemController::class, 'show'])->name('inventory.items.show');
         Route::put('items/{item}',    [ItemController::class, 'update'])->name('inventory.items.update');
+        Route::patch('items/{item}/active', [ItemController::class, 'setActive'])->name('inventory.items.set-active');
         Route::delete('items/{item}', [ItemController::class, 'destroy'])->name('inventory.items.destroy');
 
         // ── Links ────────────────────────────────────────────────────────────
