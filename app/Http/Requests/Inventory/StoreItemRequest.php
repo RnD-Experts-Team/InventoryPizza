@@ -23,6 +23,21 @@ class StoreItemRequest extends FormRequest
         });
     }
 
+    /**
+     * Force the unit fields to always be present (defaulting to null) so an omitted or
+     * empty-string unit_2/unit_3 is treated the same as "not set" rather than tripping
+     * the exists rule on an empty value.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'unit_2_id'         => $this->input('unit_2_id') === '' ? null : $this->input('unit_2_id'),
+            'unit_2_per_unit_1' => $this->input('unit_2_per_unit_1') === '' ? null : $this->input('unit_2_per_unit_1'),
+            'unit_3_id'         => $this->input('unit_3_id') === '' ? null : $this->input('unit_3_id'),
+            'unit_3_per_unit_2' => $this->input('unit_3_per_unit_2') === '' ? null : $this->input('unit_3_per_unit_2'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [

@@ -105,13 +105,17 @@ class ItemService
 
     /**
      * When there's no second unit, the dependent fields (ratio + third unit)
-     * make no sense — null them so we never store orphaned values.
+     * make no sense — null them so we never store orphaned values. Likewise,
+     * clearing the third unit on its own must null its ratio too.
      */
     private function normalizeUnits(array $data): array
     {
         if (empty($data['unit_2_id'])) {
             $data['unit_2_id']         = null;
             $data['unit_2_per_unit_1'] = null;
+            $data['unit_3_id']         = null;
+            $data['unit_3_per_unit_2'] = null;
+        } elseif (empty($data['unit_3_id'])) {
             $data['unit_3_id']         = null;
             $data['unit_3_per_unit_2'] = null;
         }

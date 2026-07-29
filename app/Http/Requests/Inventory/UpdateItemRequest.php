@@ -24,6 +24,22 @@ class UpdateItemRequest extends FormRequest
         });
     }
 
+    /**
+     * Force the unit fields to always be present (defaulting to null) so that clearing
+     * unit_2/unit_3 by omitting them — or sending "" — is indistinguishable from never
+     * having set them, instead of being silently dropped from validated() and left
+     * untouched in the database.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'unit_2_id'         => $this->input('unit_2_id') === '' ? null : $this->input('unit_2_id'),
+            'unit_2_per_unit_1' => $this->input('unit_2_per_unit_1') === '' ? null : $this->input('unit_2_per_unit_1'),
+            'unit_3_id'         => $this->input('unit_3_id') === '' ? null : $this->input('unit_3_id'),
+            'unit_3_per_unit_2' => $this->input('unit_3_per_unit_2') === '' ? null : $this->input('unit_3_per_unit_2'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [

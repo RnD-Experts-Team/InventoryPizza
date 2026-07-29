@@ -94,6 +94,30 @@ class InventoryItemTest extends TestCase
             ->assertJsonPath('data.name_en', 'Updated Box');
     }
 
+    public function test_clearing_unit_3_on_update_nulls_it_out(): void
+    {
+        $u3 = Unit::factory()->create();
+        $item = Item::factory()->create();
+        $item->update(['unit_3_id' => $u3->id, 'unit_3_per_unit_2' => 5]);
+
+        $payload = array_merge($this->basePayload(), [
+            'ultimatrix_id' => $item->ultimatrix_id,
+            'unit_1_id'     => $item->unit_1_id,
+            'unit_2_id'     => $item->unit_2_id,
+            // unit_3_id / unit_3_per_unit_2 intentionally omitted, as a client does
+            // when the user clears the third unit.
+        ]);
+
+        $this->actingAs($this->specialist())
+            ->putJson("/api/inventory/items/{$item->id}", $payload)
+            ->assertOk()
+            ->assertJsonPath('data.unit_3', null)
+            ->assertJsonPath('data.unit_3_per_unit_2', null);
+
+        $this->assertNull($item->fresh()->unit_3_id);
+        $this->assertNull($item->fresh()->unit_3_per_unit_2);
+    }
+
     public function test_specialist_can_delete_item(): void
     {
         $item = Item::factory()->create();
