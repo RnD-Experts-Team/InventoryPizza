@@ -656,7 +656,7 @@ async function saveItem(){
   if($('item-des').value)fd.append('details_es',$('item-des').value);
   fd.append('unit_1_id',$('item-u1').value);fd.append('unit_2_id',$('item-u2').value);
   fd.append('unit_2_per_unit_1',$('item-u2per').value);
-  if($('item-u3').value){fd.append('unit_3_id',$('item-u3').value);fd.append('unit_3_per_unit_2',$('item-u3per').value);}
+  fd.append('unit_3_id',$('item-u3').value);fd.append('unit_3_per_unit_2',$('item-u3').value?$('item-u3per').value:'');
   [...document.querySelectorAll('.item-type:checked')].forEach(c=>fd.append('types[]',c.value));
   fd.append('all_stores',$('item-allstores').checked?'1':'0');
   if(!$('item-allstores').checked){
