@@ -32,6 +32,12 @@ class ItemResource extends JsonResource
                 'store_number' => $s->store_number,
                 'name'         => $s->name,
             ])),
+            'tags'              => $this->whenLoaded('tags', fn () => $this->tags->map(fn ($t) => [
+                'id'      => $t->id,
+                'name_en' => $t->name_en,
+                'name_ar' => $t->name_ar,
+                'name_es' => $t->name_es,
+            ])),
         ];
     }
 }

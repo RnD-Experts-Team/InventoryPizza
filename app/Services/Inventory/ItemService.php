@@ -4,6 +4,7 @@ namespace App\Services\Inventory;
 
 use App\Models\Inventory\EntryItem;
 use App\Models\Inventory\Item;
+use App\Models\Inventory\Tag;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -13,12 +14,17 @@ use Illuminate\Validation\ValidationException;
 
 class ItemService
 {
-    public function getAll(int $perPage = 50, ?bool $active = null): LengthAwarePaginator
+    /** Pass $type ('daily'|'weekly'|'period') to only return items configured for that type. */
+    public function getAll(int $perPage = 50, ?bool $active = null, ?string $type = null): LengthAwarePaginator
     {
-        $query = Item::with(['unit1', 'unit2', 'unit3', 'stores']);
+        $query = Item::with(['unit1', 'unit2', 'unit3', 'stores', 'tags']);
 
         if ($active !== null) {
             $query->where('is_active', $active);
+        }
+
+        if ($type !== null) {
+            $query->whereJsonContains('types', $type);
         }
 
         return $query->paginate($perPage);
@@ -26,6 +32,9 @@ class ItemService
 
     public function create(array $data, ?UploadedFile $image, ?User $creator = null): Item
     {
+        $tagIds = $this->resolveTags($data['tags'], $creator);
+        unset($data['tags']);
+
         $data = $this->normalizeUnits($data);
         $item = Item::create(array_merge(
             ['is_active' => true],                                  // new items are active by default
@@ -42,11 +51,16 @@ class ItemService
             $item->stores()->sync($data['store_ids']);
         }
 
-        return $item->load(['unit1', 'unit2', 'unit3', 'stores']);
+        $item->tags()->sync($tagIds);
+
+        return $item->load(['unit1', 'unit2', 'unit3', 'stores', 'tags']);
     }
 
-    public function update(Item $item, array $data, ?UploadedFile $image): Item
+    public function update(Item $item, array $data, ?UploadedFile $image, ?User $editor = null): Item
     {
+        $tagIds = $this->resolveTags($data['tags'], $editor);
+        unset($data['tags']);
+
         $data = $this->normalizeUnits($data);
 
         if ($image) {
@@ -64,7 +78,9 @@ class ItemService
             $item->stores()->detach();
         }
 
-        return $item->load(['unit1', 'unit2', 'unit3', 'stores']);
+        $item->tags()->sync($tagIds);
+
+        return $item->load(['unit1', 'unit2', 'unit3', 'stores', 'tags']);
     }
 
     /**
@@ -100,7 +116,26 @@ class ItemService
     {
         $item->update(['is_active' => $active]);
 
-        return $item->load(['unit1', 'unit2', 'unit3', 'stores']);
+        return $item->load(['unit1', 'unit2', 'unit3', 'stores', 'tags']);
+    }
+
+    /**
+     * There is no separate "manage tags" screen: the manager just types tag names
+     * on the item form. A name matching an existing tag (by name_en) reuses it;
+     * anything new creates a tag on the spot.
+     *
+     * @param  array<int, array{name_en: string, name_ar: string, name_es: string}>  $tags
+     * @return array<int, int>
+     */
+    private function resolveTags(array $tags, ?User $creator): array
+    {
+        return array_map(
+            fn (array $tag) => Tag::firstOrCreate(
+                ['name_en' => $tag['name_en']],
+                ['name_ar' => $tag['name_ar'], 'name_es' => $tag['name_es'], 'created_by' => $creator?->id],
+            )->id,
+            $tags,
+        );
     }
 
     /**

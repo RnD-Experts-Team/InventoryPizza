@@ -16,13 +16,20 @@ class ItemController extends Controller
 {
     public function __construct(private readonly ItemService $itemService) {}
 
-    /** List inventory items with units and stores. Pass ?active=true|false to filter by status. */
+    /**
+     * List inventory items with units, stores, and tags.
+     * Pass ?active=true|false to filter by status, ?type=daily|weekly|period to filter by type.
+     */
     public function index(Request $request): AnonymousResourceCollection
     {
+        $filters = $request->validate([
+            'type' => ['nullable', 'in:daily,weekly,period'],
+        ]);
+
         $perPage = min((int) $request->query('per_page', 50), 200);
         $active  = $request->has('active') ? $request->boolean('active') : null;
 
-        return ItemResource::collection($this->itemService->getAll($perPage, $active));
+        return ItemResource::collection($this->itemService->getAll($perPage, $active, $filters['type'] ?? null));
     }
 
     /**
@@ -39,7 +46,7 @@ class ItemController extends Controller
     /** Get a single inventory item by ID. */
     public function show(Item $item): ItemResource
     {
-        return new ItemResource($item->load(['unit1', 'unit2', 'unit3', 'stores']));
+        return new ItemResource($item->load(['unit1', 'unit2', 'unit3', 'stores', 'tags']));
     }
 
     /**
@@ -48,7 +55,7 @@ class ItemController extends Controller
      */
     public function update(UpdateItemRequest $request, Item $item): ItemResource
     {
-        return new ItemResource($this->itemService->update($item, $request->validated(), $request->file('image')));
+        return new ItemResource($this->itemService->update($item, $request->validated(), $request->file('image'), $request->user()));
     }
 
     /** Activate or deactivate an item. Body: { "is_active": true|false }. */
