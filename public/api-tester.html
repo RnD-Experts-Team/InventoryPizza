@@ -284,6 +284,12 @@ pre{white-space:pre-wrap;word-break:break-word;margin-top:6px;color:#CBD5E1;max-
               <label><input type="checkbox" class="item-type" value="period"/> period</label>
             </div>
           </div>
+          <div class="form-group"><label class="form-label">Tags <span class="req">*</span></label>
+            <div id="item-tags-list"></div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addTagRow()">+ Add tag</button>
+            <div class="hint">Type the tag's name in each language. Typing the same English name as an existing tag reuses it instead of creating a duplicate — start typing to see matches.</div>
+            <datalist id="known-tag-names"></datalist>
+          </div>
           <div class="form-group"><label class="form-label">Image (jpg/jpeg/png ≤2MB)</label><input class="form-control" id="item-image" type="file" accept=".jpg,.jpeg,.png"/></div>
           <div class="form-group"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="item-allstores" checked onchange="toggleStoreIds()"/> All stores</label></div>
           <div class="form-group" id="item-stores-wrap" style="display:none;"><label class="form-label">Store IDs (comma-separated) <span class="req">*</span></label><input class="form-control mono" id="item-stores" placeholder="STORE-123456788,STORE-0002"/><div class="hint">Required when "All stores" is off.</div></div>
@@ -296,14 +302,20 @@ pre{white-space:pre-wrap;word-break:break-word;margin-top:6px;color:#CBD5E1;max-
       <div class="card">
         <div class="card-header">
           <span class="card-title">All Items</span>
-          <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select class="form-control" id="items-type-filter" style="width:130px;padding:5px 8px;font-size:12px;" onchange="loadItems(1)">
+              <option value="">All types</option>
+              <option value="daily">daily</option>
+              <option value="weekly">weekly</option>
+              <option value="period">period</option>
+            </select>
             <button class="btn btn-secondary btn-sm" onclick="loadUnits(1,true)">Load units → form</button>
             <button class="btn btn-secondary btn-sm" onclick="loadItems(1)">↻ Refresh</button>
           </div>
         </div>
         <div class="table-wrap">
-          <table><thead><tr><th>ID</th><th>Img</th><th>UTX</th><th>Name (EN)</th><th>Units</th><th>Types</th><th>Stores</th><th></th></tr></thead>
-          <tbody id="items-tbody"><tr><td colspan="8" class="empty">Click Refresh</td></tr></tbody></table>
+          <table><thead><tr><th>ID</th><th>Img</th><th>UTX</th><th>Name (EN)</th><th>Units</th><th>Types</th><th>Tags</th><th>Stores</th><th></th></tr></thead>
+          <tbody id="items-tbody"><tr><td colspan="9" class="empty">Click Refresh</td></tr></tbody></table>
         </div>
         <div id="items-pager"></div>
       </div>
@@ -359,6 +371,9 @@ pre{white-space:pre-wrap;word-break:break-word;margin-top:6px;color:#CBD5E1;max-
         <span class="card-title">Entries by Store</span>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
           <input class="form-control mono" id="entries-store" placeholder="Store ID" style="width:180px;padding:5px 8px;font-size:11px;"/>
+          <select class="form-control" id="entries-tag-filter" style="width:150px;padding:5px 8px;font-size:12px;" title="Only entries with an item carrying this tag">
+            <option value="">All tags</option>
+          </select>
           <label style="font-size:12px;color:var(--text-mid);">per page</label>
           <input class="form-control" id="entries-perpage" type="number" min="1" max="200" value="20" style="width:60px;padding:4px 8px;font-size:12px;"/>
           <button class="btn btn-secondary btn-sm" onclick="loadEntries(1)">Load</button>
@@ -394,6 +409,10 @@ pre{white-space:pre-wrap;word-break:break-word;margin-top:6px;color:#CBD5E1;max-
       <div class="card-header"><span class="card-title" id="pub-title">Inventory Count Form</span></div>
       <div class="card-body">
         <div class="kv" id="pub-meta" style="margin-bottom:16px;"></div>
+        <div class="form-group" id="pub-filter-wrap" style="display:none;">
+          <label class="form-label">Filter by category</label>
+          <select class="form-control" id="pub-tag-filter" onchange="filterPubItems()"></select>
+        </div>
         <div id="pub-items"></div>
         <div style="margin-top:16px;"><button class="btn btn-primary btn-block" onclick="submitPublic()">Submit Count</button></div>
       </div>
@@ -595,14 +614,65 @@ async function deleteUnit(id){
 
 // ─────────────────────────── ITEMS ───────────────────────────
 function toggleStoreIds(){$('item-stores-wrap').style.display=$('item-allstores').checked?'none':'block';}
-// GET /inventory/items → { data:[ItemResource], meta }
+
+// Tag rows in the item form — each row is one tag's trilingual name.
+// Sent as tags[i][name_en]/[name_ar]/[name_es]; a name_en matching an
+// existing tag reuses it server-side instead of creating a duplicate.
+let knownTagNames=[]; // {name_en,name_ar,name_es} seen across loaded items, for the datalist + autofill
+function addTagRow(en='',ar='',es=''){
+  const row=document.createElement('div');
+  row.className='form-row-3 tag-row';
+  row.style.marginBottom='6px';
+  row.innerHTML=`
+    <input class="form-control tag-en" list="known-tag-names" placeholder="Name EN" value="${esc(en)}" oninput="autofillTagRow(this)"/>
+    <input class="form-control tag-ar" dir="rtl" placeholder="الاسم بالعربي" value="${esc(ar)}"/>
+    <input class="form-control tag-es" placeholder="Nombre ES" value="${esc(es)}"/>`;
+  const removeBtn=document.createElement('button');
+  removeBtn.type='button';removeBtn.className='btn btn-secondary btn-sm';removeBtn.style.marginTop='4px';
+  removeBtn.textContent='Remove tag';
+  removeBtn.onclick=()=>row.remove();
+  const wrap=document.createElement('div');
+  wrap.appendChild(row);wrap.appendChild(removeBtn);
+  wrap.style.borderBottom='1px solid #F1F5F9';wrap.style.paddingBottom='8px';wrap.style.marginBottom='8px';
+  $('item-tags-list').appendChild(wrap);
+}
+function autofillTagRow(enInput){
+  const match=knownTagNames.find(t=>t.name_en.toLowerCase()===enInput.value.trim().toLowerCase());
+  if(!match)return;
+  const row=enInput.closest('.tag-row');
+  row.querySelector('.tag-ar').value=match.name_ar;
+  row.querySelector('.tag-es').value=match.name_es;
+}
+function collectTagRows(){
+  return [...document.querySelectorAll('#item-tags-list .tag-row')].map(row=>({
+    name_en:row.querySelector('.tag-en').value.trim(),
+    name_ar:row.querySelector('.tag-ar').value.trim(),
+    name_es:row.querySelector('.tag-es').value.trim(),
+  })).filter(t=>t.name_en||t.name_ar||t.name_es);
+}
+function updateKnownTagNames(items){
+  const seen=new Map(knownTagNames.map(t=>[t.name_en,t]));
+  (items||[]).forEach(it=>(it.tags||[]).forEach(t=>seen.set(t.name_en,t)));
+  knownTagNames=[...seen.values()];
+  $('known-tag-names').innerHTML=knownTagNames.map(t=>`<option value="${esc(t.name_en)}">`).join('');
+  // Same tag list feeds the entries-list "filter by tag" dropdown — visit the
+  // Items page at least once so tag ids/names are known here.
+  const sel=$('entries-tag-filter'), current=sel.value;
+  sel.innerHTML='<option value="">All tags</option>'+knownTagNames.map(t=>`<option value="${t.id}">${esc(t.name_en)}</option>`).join('');
+  sel.value=current;
+}
+
+// GET /inventory/items → { data:[ItemResource], meta }. ?type= filters by daily/weekly/period.
 async function loadItems(page=1){
+  const type=$('items-type-filter').value;
   try{
-    const d=await api('GET',`/inventory/items?page=${page}&per_page=50`);
+    const d=await api('GET',`/inventory/items?page=${page}&per_page=50${type?'&type='+type:''}`);
+    updateKnownTagNames(d.data);
     const rows=(d.data??[]).map(it=>{
       const units=[it.unit_1?.name,it.unit_2?.name,it.unit_3?.name].filter(Boolean).join(' / ');
       const stores=it.all_stores?'<span class="pill pill-green">all</span>':`<span class="pill pill-gray">${(it.stores||[]).length} store(s)</span>`;
       const img=it.image?`<img class="thumb" src="${esc(it.image)}" alt=""/>`:'<div class="thumb"></div>';
+      const tags=(it.tags||[]).map(t=>`<span class="pill pill-amber">${esc(t.name_en)}</span>`).join(' ')||'<span class="hint">—</span>';
       return `<tr>
         <td><span class="id-chip">${it.id}</span></td>
         <td>${img}</td>
@@ -610,13 +680,14 @@ async function loadItems(page=1){
         <td><b>${esc(it.name_en)}</b></td>
         <td><span class="pill pill-blue">${esc(units)}</span></td>
         <td>${(it.types||[]).map(t=>`<span class="pill pill-gray">${t}</span>`).join(' ')}</td>
+        <td>${tags}</td>
         <td>${stores}</td>
         <td>
           <button class="btn btn-secondary btn-sm" onclick="editItem(${it.id})">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deleteItem(${it.id})">Del</button>
         </td></tr>`;
     }).join('');
-    $('items-tbody').innerHTML=rows||'<tr><td colspan="8" class="empty">No items yet</td></tr>';
+    $('items-tbody').innerHTML=rows||'<tr><td colspan="9" class="empty">No items yet</td></tr>';
     renderPager('items-pager',d.meta,'loadItems');
   }catch(e){toast('Load items: '+errMsg(e));}
 }
@@ -625,6 +696,7 @@ function resetItemForm(){
   $('item-u1').value='';$('item-u2').value='';$('item-u3').value='';$('item-u2per').value='6';
   $('item-image').value='';$('item-allstores').checked=true;
   document.querySelectorAll('.item-type').forEach(c=>c.checked=c.value==='daily');
+  $('item-tags-list').innerHTML='';addTagRow();
   toggleStoreIds();
   $('item-form-title').textContent='Create Item';$('item-save-btn').textContent='Create Item';
 }
@@ -639,6 +711,8 @@ async function editItem(id){
     $('item-u1').value=it.unit_1?.id??'';$('item-u2').value=it.unit_2?.id??'';$('item-u2per').value=it.unit_2_per_unit_1;
     $('item-u3').value=it.unit_3?.id??'';$('item-u3per').value=it.unit_3_per_unit_2??'';
     document.querySelectorAll('.item-type').forEach(c=>c.checked=(it.types||[]).includes(c.value));
+    $('item-tags-list').innerHTML='';
+    (it.tags&&it.tags.length?it.tags:[{}]).forEach(t=>addTagRow(t.name_en,t.name_ar,t.name_es));
     $('item-allstores').checked=!!it.all_stores;toggleStoreIds();
     $('item-stores').value=(it.stores||[]).map(s=>s.id).join(',');
     $('item-form-title').textContent='Update Item #'+it.id;$('item-save-btn').textContent='Update Item';
@@ -648,6 +722,8 @@ async function editItem(id){
 }
 async function saveItem(){
   const id=$('item-id').value;
+  const tags=collectTagRows();
+  if(!tags.length)return toast('At least one tag is required');
   const fd=new FormData();
   fd.append('ultimatrix_id',$('item-utx').value);
   fd.append('name_en',$('item-en').value);fd.append('name_ar',$('item-ar').value);fd.append('name_es',$('item-es').value);
@@ -658,6 +734,11 @@ async function saveItem(){
   fd.append('unit_2_per_unit_1',$('item-u2per').value);
   fd.append('unit_3_id',$('item-u3').value);fd.append('unit_3_per_unit_2',$('item-u3').value?$('item-u3per').value:'');
   [...document.querySelectorAll('.item-type:checked')].forEach(c=>fd.append('types[]',c.value));
+  tags.forEach((t,i)=>{
+    fd.append(`tags[${i}][name_en]`,t.name_en);
+    fd.append(`tags[${i}][name_ar]`,t.name_ar);
+    fd.append(`tags[${i}][name_es]`,t.name_es);
+  });
   fd.append('all_stores',$('item-allstores').checked?'1':'0');
   if(!$('item-allstores').checked){
     $('item-stores').value.split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>fd.append('store_ids[]',s));
@@ -724,12 +805,14 @@ function copyTxt(t){navigator.clipboard?.writeText(t).catch(()=>{});toast('Copie
 
 // ─────────────────────────── ENTRIES ───────────────────────────
 // GET /inventory/stores/{store_id}/entries → { data:[EntryResource], meta }
+// ?tag_id= only returns entries that counted at least one item carrying that tag.
 async function loadEntries(page=1){
   const store_id=$('entries-store').value.trim();
   if(!store_id)return toast('Enter a Store ID');
   const perPage=Math.max(1,Math.min(200,parseInt($('entries-perpage').value)||20));
+  const tagId=$('entries-tag-filter').value;
   try{
-    const d=await api('GET',`/inventory/stores/${encodeURIComponent(store_id)}/entries?page=${page}&per_page=${perPage}`);
+    const d=await api('GET',`/inventory/stores/${encodeURIComponent(store_id)}/entries?page=${page}&per_page=${perPage}${tagId?'&tag_id='+tagId:''}`);
     const rows=(d.data??[]).map(en=>`<tr>
       <td class="mono"><b>${esc(en.reference??en.id)}</b></td>
       <td>${esc(en.submitted_by)}</td>
@@ -745,6 +828,9 @@ async function loadEntries(page=1){
   }catch(e){toast('Load entries: '+errMsg(e));}
 }
 // GET /inventory/entries/{id} → { data: EntryDetailResource }
+// Each item now carries `tags` — shown as chips per row, with a "filter by
+// category" dropdown above the table (toggles row visibility only, so the
+// Edit button/history stay wired to the right row when filtering).
 async function showEntry(id){
   state._lastEntryId=id;
   try{
@@ -752,17 +838,24 @@ async function showEntry(id){
     $('entry-detail-title').textContent=(en.reference??'Entry #'+en.id)+' — '+(en.store?.name??en.store?.id??'');
     // edit history (is_edited / edits) only present when the token is an inventory_specialist
     const hasHistory=(en.items||[]).some(ei=>'edits' in ei);
+
+    const tagMap=new Map();
+    (en.items||[]).forEach(ei=>(ei.item?.tags||[]).forEach(t=>tagMap.set(String(t.id),t.name_en)));
+    const tagFilterOptions=[...tagMap.entries()].map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
+
     const rows=(en.items||[]).map(ei=>{
       const it=ei.item??{};
       const u1=it.unit_1?.name,u2=it.unit_2?.name,u3=it.unit_3?.name;
+      const tagIds=(it.tags||[]).map(t=>t.id).join(',');
+      const tagChips=(it.tags||[]).map(t=>`<span class="pill pill-amber">${esc(t.name_en)}</span>`).join(' ');
       const editsHtml=(ei.edits||[]).map(ed=>`
         <div style="font-size:11px;color:var(--text-mid);margin-top:4px;border-left:2px solid var(--amber);padding-left:8px;">
           ${esc(ed.prev_total)} → <b>${esc(ed.new_total)}</b> · "${esc(ed.reason)}"
           — ${esc(ed.edited_by?.name ?? '?')} @ ${esc(ed.edited_at??'')}
         </div>`).join('');
       const editBtn=`<button class="btn btn-secondary btn-sm" onclick='openEdit(${ei.id},${JSON.stringify({u1,u2,u3,c1:ei.count_unit_1,c2:ei.count_unit_2,c3:ei.count_unit_3})})'>Edit</button>`;
-      return `<tr>
-        <td><b>${esc(it.name_en??'—')}</b><br><span class="hint">${esc(it.ultimatrix_id??'')}</span></td>
+      return `<tr class="entry-item-row" data-tags="${esc(tagIds)}">
+        <td><b>${esc(it.name_en??'—')}</b><br><span class="hint">${esc(it.ultimatrix_id??'')}</span><br>${tagChips}</td>
         <td class="mono">${ei.count_unit_1} ${esc(u1??'')}</td>
         <td class="mono">${ei.count_unit_2} ${esc(u2??'')}</td>
         <td class="mono">${u3?ei.count_unit_3+' '+esc(u3):'—'}</td>
@@ -783,6 +876,10 @@ async function showEntry(id){
         <div class="k">Submitted at</div><div>${en.submitted_at??'—'}</div>
       </div>
       ${hasHistory?'':'<div class="note">Edit history is only returned for inventory_specialist tokens.</div>'}
+      ${tagMap.size?`<div class="form-group"><label class="form-label">Filter by category</label>
+        <select class="form-control" style="max-width:220px;" onchange="filterEntryItems(this.value)">
+          <option value="">All categories</option>${tagFilterOptions}
+        </select></div>`:''}
       <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Unit 1</th><th>Unit 2</th><th>Unit 3</th><th>Total</th>${hasHistory?'<th>Edit History</th>':''}<th></th></tr></thead>
         <tbody>${rows||'<tr><td colspan="7" class="empty">No items</td></tr>'}</tbody>
@@ -790,6 +887,12 @@ async function showEntry(id){
     $('entry-detail').style.display='block';
     $('entry-detail').scrollIntoView({behavior:'smooth'});
   }catch(e){toast('Load entry: '+errMsg(e));}
+}
+function filterEntryItems(tagId){
+  document.querySelectorAll('.entry-item-row').forEach(row=>{
+    const ids=row.dataset.tags?row.dataset.tags.split(','):[];
+    row.style.display=(!tagId||ids.includes(tagId))?'':'none';
+  });
 }
 function closeEntryDetail(){$('entry-detail').style.display='none';state._lastEntryId=null;}
 // PATCH /inventory/entry-items/{id}  body: { count_unit_1, count_unit_2, count_unit_3, reason }
@@ -813,6 +916,8 @@ async function patchEntryItem(id,body){
 // ─────────────────────────── PUBLIC FORM ───────────────────────────
 let pubItems=[];
 // GET /public/inventory/{token} → { data: PublicLinkResource }
+// Each item now carries `tags` (resolved to the link's language) — the manager's
+// category, shown as chips and used to build the "filter by category" dropdown below.
 async function loadPublic(){
   const token=$('pub-token').value.trim();
   if(!token)return toast('Enter a token');
@@ -830,12 +935,26 @@ async function loadPublic(){
       <div class="k">Language</div><div><b>${esc(lang)}</b></div>
       <div class="k">Items</div><div>${pubItems.length}</div>`;
     $('pub-items').setAttribute('dir', rtl?'rtl':'ltr');
+
+    // Build the category filter from whatever tags actually appear on this link's items.
+    const tagMap=new Map();
+    let hasUntagged=false;
+    pubItems.forEach(it=>{
+      if((it.tags||[]).length) it.tags.forEach(t=>tagMap.set(String(t.id),t.name));
+      else hasUntagged=true;
+    });
+    const tagOptions=[...tagMap.entries()].map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
+    $('pub-tag-filter').innerHTML=`<option value="">All categories</option>`+tagOptions+(hasUntagged?`<option value="__none__">Uncategorized</option>`:'');
+    $('pub-filter-wrap').style.display=tagMap.size?'block':'none';
+
     $('pub-items').innerHTML=pubItems.map(it=>{
       const u1=it.unit_1?.name,u2=it.unit_2?.name,u3=it.unit_3?.name;
       const img=it.image?`<img class="thumb" style="width:48px;height:48px;" src="${esc(it.image)}" alt=""/>`:'';
       const details=it.details?`<div class="hint" style="margin-top:2px;">${esc(it.details)}</div>`:'';
-      return `<div style="padding:12px 0;border-bottom:1px solid #F1F5F9;">
-        <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">${img}<div><b>${esc(it.name)}</b> <span class="hint">${esc(it.ultimatrix_id)}</span>${details}</div></div>
+      const tagIds=(it.tags||[]).map(t=>t.id).join(',');
+      const tagChips=(it.tags||[]).map(t=>`<span class="pill pill-amber">${esc(t.name)}</span>`).join(' ');
+      return `<div class="pub-item-row" data-tags="${esc(tagIds)}" style="padding:12px 0;border-bottom:1px solid #F1F5F9;">
+        <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">${img}<div><b>${esc(it.name)}</b> <span class="hint">${esc(it.ultimatrix_id)}</span> ${tagChips}${details}</div></div>
         <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
           <div style="text-align:center;"><div class="hint">${esc(u1||'')}</div>
             <input class="form-control mono pub-c1" data-id="${it.id}" type="number" min="0" value="0" style="width:90px;text-align:center;"/></div>
@@ -852,6 +971,16 @@ async function loadPublic(){
     $('pub-form').style.display='none';
     toast('Load form: '+errMsg(e));
   }
+}
+// Filtering only toggles row visibility (never rebuilds the DOM), so counts already
+// typed in a hidden category are preserved when the manager switches categories back.
+function filterPubItems(){
+  const sel=$('pub-tag-filter').value;
+  document.querySelectorAll('.pub-item-row').forEach(row=>{
+    const ids=row.dataset.tags?row.dataset.tags.split(','):[];
+    const show=!sel || (sel==='__none__'?ids.length===0:ids.includes(sel));
+    row.style.display=show?'':'none';
+  });
 }
 // POST /public/inventory/{token}/submit  body: { items:[{item_id,count_unit_1,count_unit_2,count_unit_3?}] } → { data:{reference,submitted_at} } 201
 async function submitPublic(){
@@ -873,6 +1002,7 @@ async function submitPublic(){
 
 // ─────────────────────────── init ───────────────────────────
 $('link-date').value=new Date().toISOString().slice(0,10);
+addTagRow();
 applySession();
 </script>
 </body>

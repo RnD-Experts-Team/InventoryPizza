@@ -62,6 +62,12 @@ class UpdateItemRequest extends FormRequest
             'unit_3_per_unit_2' => ['required_with:unit_3_id', 'nullable', 'numeric', 'min:0.0001'],
             'types'             => ['required', 'array'],
             'types.*'           => ['in:daily,weekly,period'],
+            // Tags aren't picked from a separate list — the manager types them here.
+            // A name matching an existing tag reuses it; anything new creates a tag.
+            'tags'              => ['required', 'array', 'min:1'],
+            'tags.*.name_en'    => ['required', 'string', 'max:100'],
+            'tags.*.name_ar'    => ['required', 'string', 'max:100'],
+            'tags.*.name_es'    => ['required', 'string', 'max:100'],
             'all_stores'        => ['required', 'boolean'],
             // Frontend sends store_numbers, not internal ids.
             'store_ids'         => ['required_if:all_stores,false', 'nullable', 'array'],

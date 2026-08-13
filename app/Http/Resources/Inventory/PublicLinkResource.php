@@ -38,6 +38,10 @@ class PublicLinkResource extends JsonResource
                 'unit_2_per_unit_1' => $item->unit_2_per_unit_1,
                 'unit_3'            => $item->unit3 ? ['name' => $item->unit3->name] : null,
                 'unit_3_per_unit_2' => $item->unit_3_per_unit_2,
+                'tags'              => $item->tags->map(fn ($tag) => [
+                    'id'   => $tag->id,
+                    'name' => $tag->{"name_{$lang}"},
+                ])->values(),
             ])),
         ];
     }

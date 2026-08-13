@@ -23,7 +23,7 @@ class PublicInventoryController extends Controller
     public function show(string $token): JsonResponse|PublicLinkResource
     {
         $link = InventoryLink::where('token', $token)
-            ->with(['store', 'items.unit1', 'items.unit2', 'items.unit3'])
+            ->with(['store', 'items.unit1', 'items.unit2', 'items.unit3', 'items.tags'])
             ->first();
 
         if (! $link) {

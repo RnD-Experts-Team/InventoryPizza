@@ -57,4 +57,9 @@ class Item extends Model
     {
         return $this->belongsToMany(InventoryLink::class, 'inventory_link_item', 'item_id', 'link_id');
     }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'inventory_item_tag', 'item_id', 'tag_id');
+    }
 }
