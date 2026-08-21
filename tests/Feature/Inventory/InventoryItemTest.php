@@ -39,6 +39,9 @@ class InventoryItemTest extends TestCase
             'unit_2_id'         => $u2->id,
             'unit_2_per_unit_1' => 6,
             'types'             => ['daily'],
+            'tags'              => [
+                ['name_en' => 'Frozen', 'name_ar' => 'مجمد', 'name_es' => 'Congelado'],
+            ],
             'all_stores'        => true,
         ], $overrides);
     }
@@ -143,5 +146,57 @@ class InventoryItemTest extends TestCase
             ->postJson('/api/inventory/items', $payload)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['ultimatrix_id']);
+    }
+
+    public function test_creating_item_without_tags_returns_422(): void
+    {
+        $payload = $this->basePayload(['tags' => []]);
+
+        $this->actingAs($this->specialist())
+            ->postJson('/api/inventory/items', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tags']);
+    }
+
+    public function test_new_tag_name_creates_a_tag(): void
+    {
+        $payload = $this->basePayload();
+
+        $this->actingAs($this->specialist())
+            ->postJson('/api/inventory/items', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.tags.0.name_en', 'Frozen');
+
+        $this->assertDatabaseCount('tags', 1);
+    }
+
+    public function test_reusing_an_existing_tag_name_does_not_duplicate_it(): void
+    {
+        $this->actingAs($this->specialist())->postJson('/api/inventory/items', $this->basePayload())->assertCreated();
+
+        $second = $this->basePayload(['ultimatrix_id' => 'ITM-002']);
+        $this->actingAs($this->specialist())
+            ->postJson('/api/inventory/items', $second)
+            ->assertCreated()
+            ->assertJsonPath('data.tags.0.name_en', 'Frozen');
+
+        $this->assertDatabaseCount('tags', 1);
+    }
+
+    public function test_items_can_be_filtered_by_type(): void
+    {
+        $this->actingAs($this->specialist())
+            ->postJson('/api/inventory/items', $this->basePayload(['types' => ['daily']]))
+            ->assertCreated();
+
+        $this->actingAs($this->specialist())
+            ->postJson('/api/inventory/items', $this->basePayload(['ultimatrix_id' => 'ITM-002', 'types' => ['weekly']]))
+            ->assertCreated();
+
+        $this->actingAs($this->specialist())
+            ->getJson('/api/inventory/items?type=weekly')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.ultimatrix_id', 'ITM-002');
     }
 }

@@ -41,6 +41,9 @@ Route::prefix('inventory')
         Route::delete('units/{unit}', [UnitController::class, 'destroy'])->name('inventory.units.destroy');
 
         // ── Items ────────────────────────────────────────────────────────────
+        // Tags are managed inline through these endpoints — there is no separate
+        // tags CRUD. The manager sends tag names on create/update; unknown names
+        // become new tags, matching existing names reuse the existing tag.
         Route::get('items',           [ItemController::class, 'index'])->name('inventory.items.index');
         Route::post('items',          [ItemController::class, 'store'])->name('inventory.items.store');
         Route::get('items/{item}',    [ItemController::class, 'show'])->name('inventory.items.show');

@@ -33,6 +33,12 @@ class EntryWithHistoryResource extends JsonResource
                     ? ['id' => $entryItem->item->unit3->id, 'name' => $entryItem->item->unit3->name]
                     : null,
                 'unit_3_per_unit_2' => $entryItem->item->unit_3_per_unit_2,
+                'tags'              => $entryItem->item->tags->map(fn ($t) => [
+                    'id'      => $t->id,
+                    'name_en' => $t->name_en,
+                    'name_ar' => $t->name_ar,
+                    'name_es' => $t->name_es,
+                ])->values(),
             ],
             'count_unit_1'    => $entryItem->count_unit_1,
             'count_unit_2'    => $entryItem->count_unit_2,

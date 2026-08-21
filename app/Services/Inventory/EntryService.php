@@ -19,7 +19,7 @@ class EntryService
 
     /**
      * @param int|null $storeId  internal integer store id (already resolved)
-     * @param array    $filters  optional: date_from, date_to, type, submitted_by, edited(bool)
+     * @param array    $filters  optional: date_from, date_to, type, submitted_by, edited(bool), tag_id
      */
     public function getAll(?int $storeId = null, int $perPage = 50, array $filters = []): LengthAwarePaginator
     {
@@ -48,6 +48,9 @@ class EntryService
                 ? $query->whereHas('items', fn ($q) => $q->where('is_edited', true))
                 : $query->whereDoesntHave('items', fn ($q) => $q->where('is_edited', true));
         }
+        if (! empty($filters['tag_id'])) {
+            $query->whereHas('items.item.tags', fn ($q) => $q->where('tags.id', $filters['tag_id']));
+        }
 
         return $query->paginate($perPage);
     }
@@ -60,6 +63,7 @@ class EntryService
             'items.item.unit1',
             'items.item.unit2',
             'items.item.unit3',
+            'items.item.tags',
         ])->loadCount([
             'items',
             'items as edited_items_count' => fn ($q) => $q->where('is_edited', true),
@@ -74,6 +78,7 @@ class EntryService
             'items.item.unit1',
             'items.item.unit2',
             'items.item.unit3',
+            'items.item.tags',
             'items.edits.editor',
         ])->loadCount([
             'items',

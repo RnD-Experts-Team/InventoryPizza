@@ -31,6 +31,8 @@ class EntryController extends Controller
             'type'         => ['nullable', 'in:daily,weekly,period'],
             'submitted_by' => ['nullable', 'string', 'max:255'],
             'edited'       => ['nullable', 'boolean'],
+            // Only entries that counted at least one item carrying this tag.
+            'tag_id'       => ['nullable', 'integer', 'exists:tags,id'],
         ]);
 
         $perPage = min((int) $request->query('per_page', 50), 200);
