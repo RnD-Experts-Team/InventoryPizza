@@ -78,9 +78,7 @@ Route::prefix('inventory')
         // here: auth_rules reads store_id_sources.path and decides. Nothing in this
         // service scopes stores locally, so that decision has to be reachable.
         Route::get('stores/{store_id}/counts', [CountsController::class, 'index'])
-            ->middleware('throttle:inventory-read')
             ->name('inventory.store.counts.index');
-
 
         Route::get('stores/{store_id}/links',     [LinkController::class, 'indexByStore'])->name('inventory.store.links.index');
         Route::get('stores/{store_id}/entries',   [EntryController::class, 'indexByStore'])->name('inventory.store.entries.index');
