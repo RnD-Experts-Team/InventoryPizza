@@ -84,7 +84,28 @@ class CountsQueryService
         array $itemRefs,
         bool $allEntries,
     ): array {
+        // Selected here, not passed to get(). Builder::get($columns) applies its
+        // argument with `??=`, so it is IGNORED once $this->columns is set — and
+        // the addSelect('l.dupes') below sets it. Passing the list to get() left
+        // the query selecting `l.dupes` alone, and every other field came back
+        // undefined. It only surfaced on a store that had rows: with none, the
+        // mapping closure never ran.
+        $columns = [
+            's.store_number as store',
+            'e.store_id',
+            'e.date',
+            'i.ultimatrix_id',
+            'i.name_en as item_name',
+            'ei.count_unit_1',
+            'ei.total_in_unit_1',
+            'u.name as unit_1',
+            'ei.is_edited',
+            'e.id as entry_id',
+            'e.submitted_at',
+        ];
+
         $query = DB::table('inventory_entry_items as ei')
+            ->select($columns)
             ->join('inventory_entries as e', 'e.id', '=', 'ei.entry_id')
             ->join('inventory_items as i', 'i.id', '=', 'ei.item_id')
             ->join('stores as s', 's.id', '=', 'e.store_id')
@@ -112,19 +133,7 @@ class CountsQueryService
 
         $rows = $query
             ->orderBy('e.store_id')->orderBy('e.date')->orderBy('i.ultimatrix_id')
-            ->get([
-                's.store_number as store',
-                'e.store_id',
-                'e.date',
-                'i.ultimatrix_id',
-                'i.name_en as item_name',
-                'ei.count_unit_1',
-                'ei.total_in_unit_1',
-                'u.name as unit_1',
-                'ei.is_edited',
-                'e.id as entry_id',
-                'e.submitted_at',
-            ]);
+            ->get();
 
         return $rows->map(fn ($r) => [
             'store'             => $r->store,
