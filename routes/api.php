@@ -80,6 +80,19 @@ Route::prefix('inventory')
         Route::get('stores/{store_id}/counts', [CountsController::class, 'index'])
             ->name('inventory.store.counts.index');
 
+        // The same answer for many stores in one request — what the weekly grid
+        // needs, where the per-store route costs 44 calls and 44 token checks.
+        //
+        // No store in the path and none in the query: it returns every active
+        // store, and pizzasys decides whether the caller is someone who may see
+        // them all. Its resolver has a mode for precisely that —
+        //   store_scope_mode: "all_stores"
+        //       "user must have access to every active store, then check global perms"
+        // So the specialist's grid passes, and a store manager gets 403 and uses
+        // the per-store route above, which is the one built for them.
+        Route::get('counts', [CountsController::class, 'bulk'])
+            ->name('inventory.counts.index');
+
         Route::get('stores/{store_id}/links',     [LinkController::class, 'indexByStore'])->name('inventory.store.links.index');
         Route::get('stores/{store_id}/entries',   [EntryController::class, 'indexByStore'])->name('inventory.store.entries.index');
     });
