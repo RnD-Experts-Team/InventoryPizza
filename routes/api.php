@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Inventory\CountsController;
 use App\Http\Controllers\Inventory\EntryController;
 use App\Http\Controllers\Inventory\EntryItemController;
 use App\Http\Controllers\Inventory\ItemController;
@@ -66,6 +67,32 @@ Route::prefix('inventory')
         Route::patch('entry-items/{entryItem}', [EntryItemController::class, 'update'])->name('inventory.entry-items.update');
 
         // ── Store-scoped routes ───────────────────────────────────────────────
+        // Counted quantities for one store: a date range and selected items in a
+        // single query. The entry endpoints cannot answer that — the list returns
+        // headers with no quantities, and the detail is keyed by one entry id — so
+        // a week of three items cost 8 calls, each with its own synchronous token
+        // check against pizzasys. This is one.
+        //
+        // The store is in the PATH as {store_id}, not a query list, so pizzasys
+        // authorizes it the same way it authorizes every other store-scoped route
+        // here: auth_rules reads store_id_sources.path and decides. Nothing in this
+        // service scopes stores locally, so that decision has to be reachable.
+        Route::get('stores/{store_id}/counts', [CountsController::class, 'index'])
+            ->name('inventory.store.counts.index');
+
+        // The same answer for many stores in one request — what the weekly grid
+        // needs, where the per-store route costs 44 calls and 44 token checks.
+        //
+        // No store in the path and none in the query: it returns every active
+        // store, and pizzasys decides whether the caller is someone who may see
+        // them all. Its resolver has a mode for precisely that —
+        //   store_scope_mode: "all_stores"
+        //       "user must have access to every active store, then check global perms"
+        // So the specialist's grid passes, and a store manager gets 403 and uses
+        // the per-store route above, which is the one built for them.
+        Route::get('counts', [CountsController::class, 'bulk'])
+            ->name('inventory.counts.index');
+
         Route::get('stores/{store_id}/links',     [LinkController::class, 'indexByStore'])->name('inventory.store.links.index');
         Route::get('stores/{store_id}/entries',   [EntryController::class, 'indexByStore'])->name('inventory.store.entries.index');
     });
