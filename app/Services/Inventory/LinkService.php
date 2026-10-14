@@ -23,6 +23,8 @@ class LinkService
      */
     public function generate(array $data, User $creator): Collection
     {
+        $data['date'] = $this->resolveDate($data['date']);
+
         $itemIds = $this->resolveItemsForStore($data['type'], $data['store_id']);
 
         if (empty($itemIds)) {
@@ -50,6 +52,18 @@ class LinkService
 
             return $link->load(['items', 'store', 'creator', 'employee']);
         })->values());
+    }
+
+    /**
+     * Business day starts at 03:00 UTC (6 AM Damascus).
+     * Old dates are allowed; a future date is pulled back to the business date.
+     */
+    public function resolveDate(string $date): string
+    {
+        $date = substr($date, 0, 10);
+        $businessDate = now('UTC')->subHours(3)->toDateString();
+
+        return $date > $businessDate ? $businessDate : $date;
     }
 
     private function uniqueToken(): string
