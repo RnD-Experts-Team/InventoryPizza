@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Public routes (no auth) — public inventory submission links
 |--------------------------------------------------------------------------
+| Rate-limited per IP: the token in the path is the only thing guarding them.
 */
-Route::prefix('public/inventory')->group(function () {
+Route::prefix('public/inventory')->middleware('throttle:api-public')->group(function () {
     Route::get('{token}', [PublicInventoryController::class, 'show'])
         ->name('public.inventory.show');
     Route::post('{token}/submit', [PublicInventoryController::class, 'submit'])
@@ -29,9 +30,13 @@ Route::prefix('public/inventory')->group(function () {
 | (pizzasys). The `auth.token.store` middleware verifies the user's token and
 | asks pizzasys whether the user may access this route (via auth-rules).
 | There is no local login or local role check anymore.
+|
+| Rate limits (AppServiceProvider): `throttle:api` runs ahead of the pizzasys
+| call on every route. The all-stores counts and the item image uploads add
+| their own tier on top.
 */
 Route::prefix('inventory')
-    ->middleware('auth.token.store')
+    ->middleware(['throttle:api', 'auth.token.store'])
     ->group(function () {
 
         // ── Units ────────────────────────────────────────────────────────────
@@ -46,9 +51,9 @@ Route::prefix('inventory')
         // tags CRUD. The manager sends tag names on create/update; unknown names
         // become new tags, matching existing names reuse the existing tag.
         Route::get('items',           [ItemController::class, 'index'])->name('inventory.items.index');
-        Route::post('items',          [ItemController::class, 'store'])->name('inventory.items.store');
+        Route::post('items',          [ItemController::class, 'store'])->middleware('throttle:api-upload')->name('inventory.items.store');
         Route::get('items/{item}',    [ItemController::class, 'show'])->name('inventory.items.show');
-        Route::put('items/{item}',    [ItemController::class, 'update'])->name('inventory.items.update');
+        Route::put('items/{item}',    [ItemController::class, 'update'])->middleware('throttle:api-upload')->name('inventory.items.update');
         Route::patch('items/{item}/active', [ItemController::class, 'setActive'])->name('inventory.items.set-active');
         Route::delete('items/{item}', [ItemController::class, 'destroy'])->name('inventory.items.destroy');
 
@@ -91,6 +96,7 @@ Route::prefix('inventory')
         // So the specialist's grid passes, and a store manager gets 403 and uses
         // the per-store route above, which is the one built for them.
         Route::get('counts', [CountsController::class, 'bulk'])
+            ->middleware('throttle:api-heavy')
             ->name('inventory.counts.index');
 
         Route::get('stores/{store_id}/links',     [LinkController::class, 'indexByStore'])->name('inventory.store.links.index');
