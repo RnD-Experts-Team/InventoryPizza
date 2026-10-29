@@ -101,4 +101,8 @@ Route::prefix('inventory')
 
         Route::get('stores/{store_id}/links',     [LinkController::class, 'indexByStore'])->name('inventory.store.links.index');
         Route::get('stores/{store_id}/entries',   [EntryController::class, 'indexByStore'])->name('inventory.store.entries.index');
+
+        // Unified calendar feed. Stores are in the query (stores=a,b): the pizzasys
+        // rule must read store_id_sources.query ["stores"] with policy "all".
+        Route::get('calendar/feed', \App\Http\Controllers\Inventory\CalendarFeedController::class)->name('inventory.calendar.feed');
     });
