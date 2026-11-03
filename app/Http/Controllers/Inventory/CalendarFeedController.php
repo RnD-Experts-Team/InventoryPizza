@@ -11,7 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
- * GET /api/inventory/calendar/feed?stores=03795-00001[,…]&from=YYYY-MM-DD&to=YYYY-MM-DD
+ * GET /api/inventory/calendar/feed?stores=03795-00001[,…]&from=YYYY-MM-DD&to=YYYY-MM-DD[&group=day]
+ *
+ * `group=day` (year view, all-stores grid): instead of `events`, `days` — how
+ * many counts each store has on each day, by status — for up to 371 days.
  *
  * Inventory's part of the unified calendar (calendar-feed/v1): one
  * `inventory_count` event per link — the link is the requested count, so the
@@ -31,6 +34,12 @@ class CalendarFeedController extends Controller
 
     private const MAX_DAYS = 62;
 
+    /** With group=day: a year — a 53-week fiscal year is 371 days. */
+    private const MAX_DAYS_GROUPED = 371;
+
+    /** The statuses a day counts; `info` and cancelled are not counted. */
+    private const COUNTED = ['done' => 1, 'pending' => 1, 'overdue' => 1, 'missed' => 1, 'in_progress' => 1, 'scheduled' => 1];
+
     // Every date and "today" (for overdue) is UTC; the response says so in
     // stores[].timezone.
     private const TIMEZONE = 'UTC';
@@ -44,14 +53,17 @@ class CalendarFeedController extends Controller
             'stores' => ['required', 'string'],
             'from'   => ['required', 'date_format:Y-m-d'],
             'to'     => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'group'  => ['nullable', 'in:day'],
         ]);
+        $grouped = ($data['group'] ?? null) === 'day';
+        $maxDays = $grouped ? self::MAX_DAYS_GROUPED : self::MAX_DAYS;
 
         $numbers = array_values(array_unique(array_filter(array_map('trim', explode(',', $data['stores'])))));
         if ($numbers === [] || count($numbers) > self::MAX_STORES) {
             throw ValidationException::withMessages(['stores' => 'Send 1 to ' . self::MAX_STORES . ' store numbers.']);
         }
-        if (Carbon::parse($data['from'])->diffInDays(Carbon::parse($data['to'])) > self::MAX_DAYS) {
-            throw ValidationException::withMessages(['to' => 'Date range may not exceed ' . self::MAX_DAYS . ' days.']);
+        if (Carbon::parse($data['from'])->diffInDays(Carbon::parse($data['to'])) > $maxDays) {
+            throw ValidationException::withMessages(['to' => "Date range may not exceed {$maxDays} days."]);
         }
 
         // id => store_number, active stores only.
@@ -74,15 +86,53 @@ class CalendarFeedController extends Controller
             ->map(fn (InventoryLink $link) => $this->event($link, $stores[$link->store_id], $today))
             ->all();
 
+        $body = $grouped
+            ? ['group' => 'day', 'days' => $this->days($events)]
+            : ['events' => $events];
+
         return response()->json([
             'contract'     => 'calendar-feed/v1',
             'source'       => 'inventory',
             'generated_at' => $this->utc(now()),
             'range'        => ['from' => $data['from'], 'to' => $data['to']],
             'stores'       => array_map(fn ($n) => ['number' => $n, 'timezone' => self::TIMEZONE], $numbers),
-            'events'       => $events,
-            'meta'         => ['count' => count($events), 'truncated' => false],
+            ...$body,
+            'meta'         => ['count' => count($body['days'] ?? $body['events']), 'truncated' => false],
         ]);
+    }
+
+    /**
+     * group=day: per store and day, how many things there are in each status.
+     * A summary event adds its own counts; `info`, cancelled and store-less
+     * events are not counted; days with nothing are left out.
+     *
+     * @return list<array{store: string, date: string, counts: array<string, int>}>
+     */
+    private function days(array $events): array
+    {
+        $days = [];
+        foreach ($events as $e) {
+            $add = isset($e['counts'])
+                ? array_intersect_key($e['counts'], self::COUNTED)
+                : (isset(self::COUNTED[$e['status']]) ? [$e['status'] => 1] : []);
+            if ($e['store'] === null || array_sum($add) === 0) {
+                continue;
+            }
+            $day = &$days[$e['date'] . '|' . $e['store']];
+            $day ??= ['store' => $e['store'], 'date' => $e['date'], 'counts' => []];
+            foreach (array_filter($add) as $status => $n) {
+                $day['counts'][$status] = ($day['counts'][$status] ?? 0) + $n;
+            }
+            unset($day);
+        }
+        ksort($days);
+
+        foreach ($days as &$day) {
+            $day['counts']['total'] = array_sum($day['counts']);
+        }
+        unset($day);
+
+        return array_values($days);
     }
 
     /** @return array<string, mixed> */
