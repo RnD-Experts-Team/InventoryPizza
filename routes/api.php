@@ -7,6 +7,8 @@ use App\Http\Controllers\Inventory\ItemController;
 use App\Http\Controllers\Inventory\LinkController;
 use App\Http\Controllers\Inventory\PublicInventoryController;
 use App\Http\Controllers\Inventory\UnitController;
+use App\Http\Controllers\ReportDatasetController;
+use App\Reports\ReportDatasets;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -101,4 +103,27 @@ Route::prefix('inventory')
 
         Route::get('stores/{store_id}/links',     [LinkController::class, 'indexByStore'])->name('inventory.store.links.index');
         Route::get('stores/{store_id}/entries',   [EntryController::class, 'indexByStore'])->name('inventory.store.entries.index');
+
+        // Unified calendar feed. Stores are in the query (stores=a,b): the pizzasys
+        // rule must read store_id_sources.query ["stores"] with policy "all".
+        Route::get('calendar/feed', \App\Http\Controllers\Inventory\CalendarFeedController::class)->name('inventory.calendar.feed');
     });
+
+/*
+|--------------------------------------------------------------------------
+| The report dataset contract (the same in every service)
+|--------------------------------------------------------------------------
+| Outside the `inventory` prefix on purpose: the report builder reaches every
+| service at /report-datasets. One literal query route per dataset - never a
+| {key} parameter - so each dataset has its own pizzasys auth rule. The body's
+| `stores` are store codes. This service defines no throttle tiers yet, so the
+| routes carry only the auth middleware.
+*/
+Route::get('report-datasets', [ReportDatasetController::class, 'catalog'])
+    ->middleware('auth.token.store')->name('api.report-datasets.index');
+foreach (ReportDatasets::DATASETS as $dataset) {
+    Route::post('report-datasets/'.$dataset::KEY.'/query', [ReportDatasetController::class, 'query'])
+        ->defaults('dataset', $dataset::KEY)
+        ->middleware('auth.token.store')
+        ->name('api.report-datasets.'.$dataset::KEY.'.query');
+}
